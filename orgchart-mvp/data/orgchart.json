@@ -1,54 +1,21 @@
 {
   "company": "Mi Organigrama",
-  "updatedAt": "2026-07-28T09:44:37.768882481-05:00",
+  "updatedAt": "2026-07-28T10:27:29.259090346-05:00",
   "nodes": [
     {
-      "id": "d7cd7158-5ce9-4b9e-ab82-873264521681",
+      "id": "d30f11e6-375c-4ef3-a7b9-e446693380c0",
       "parentId": "",
-      "name": "Nueva dirección",
-      "title": "Cargo principal",
+      "name": "Dirección principal",
+      "title": "Nivel estratégico",
       "area": "",
       "email": "",
       "phone": "",
       "x": 60,
       "y": 60,
-      "rotation": 0
-    },
-    {
-      "id": "547fa5fd-2367-459c-9a3a-72e4c202417c",
-      "parentId": "",
-      "name": "Nueva dirección",
-      "title": "Cargo principal",
-      "area": "",
-      "email": "",
-      "phone": "",
-      "x": 728,
-      "y": 60,
-      "rotation": 0
-    },
-    {
-      "id": "19273d0b-326b-403d-96a1-00e412b42930",
-      "parentId": "d7cd7158-5ce9-4b9e-ab82-873264521681",
-      "name": "Nuevo colaborador",
-      "title": "Cargo",
-      "area": "",
-      "email": "",
-      "phone": "",
-      "x": 60,
-      "y": 290,
-      "rotation": 0
-    },
-    {
-      "id": "40a6612c-c1bb-4eab-8b0d-df064910475c",
-      "parentId": "19273d0b-326b-403d-96a1-00e412b42930",
-      "name": "Nuevo colaborador",
-      "title": "Cargo",
-      "area": "",
-      "email": "",
-      "phone": "",
-      "x": 60,
-      "y": 524,
+      "width": 308,
+      "height": 148,
       "rotation": 0
     }
-  ]
+  ],
+  "links": []
 }

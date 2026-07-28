@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 
 	"orgchart-mvp/pkg/export"
 	"orgchart-mvp/pkg/server"
@@ -25,6 +26,6 @@ func main() {
 
 	// Crea y ejecuta el servidor, inyectando las dependencias
 	srv := server.NewServer(store, htmlExporter)
-	log.Println("Servidor en http://localhost:8081")
-	log.Fatal(srv.Run(":8081"))
+	log.Println("Servidor escuchando en http://localhost:8081")
+	log.Fatal(http.ListenAndServe(":8081", srv.Handler()))
 }
