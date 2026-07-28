@@ -1,25 +1,33 @@
 import { dom } from './dom.js';
-import { NODE_DIMS, HORIZONTAL_SPACING, VERTICAL_SPACING } from './config.js';
+import { NODE_DIMS, HORIZONTAL_SPACING, VERTICAL_SPACING, NODE_MIN_WIDTH, NODE_MIN_HEIGHT, NODE_MAX_WIDTH, NODE_MAX_HEIGHT } from './config.js';
 import { renderAll, renderCanvas } from './render.js';
 
 export const state = {
   company: '',
   updatedAt: null,
   nodes: [],
+  links: [],
   selectedNodeId: null,
+  selectedLinkId: null,
   searchTerm: '',
   collapsed: new Set(),
   view: { x: 120, y: 60, scale: 1 },
   panState: null,
   nodeDragState: null,
+  resizeState: null,
   connectorType: 'curved',
+  linkStyle: 'straight', // 'straight' (línea negra) | 'cable' (curvo)
   autoLayout: true,
+  connectMode: false,
+  connectSourceId: null,
   history: [],
   future: [],
 };
 
 export function normalizeState(raw) {
   const nodes = Array.isArray(raw?.nodes) ? raw.nodes : [];
+  const links = Array.isArray(raw?.links) ? raw.links : [];
+
   return {
     company: raw?.company || '',
     updatedAt: raw?.updatedAt || null,
@@ -33,7 +41,17 @@ export function normalizeState(raw) {
       phone: node.phone || '',
       x: typeof node.x === 'number' ? node.x : 0,
       y: typeof node.y === 'number' ? node.y : 0,
+      width: typeof node.width === 'number' && node.width > 0 ? node.width : NODE_DIMS.width,
+      height: typeof node.height === 'number' && node.height > 0 ? node.height : NODE_DIMS.height,
       rotation: typeof node.rotation === 'number' ? node.rotation : 0,
+    })),
+    links: links.map(link => ({
+      id: link.id || crypto.randomUUID(),
+      fromId: link.fromId || '',
+      toId: link.toId || '',
+      style: link.style === 'cable' ? 'cable' : 'straight',
+      color: link.color || '#111827',
+      thickness: typeof link.thickness === 'number' ? link.thickness : 2.5,
     })),
   };
 }
@@ -41,6 +59,7 @@ export function normalizeState(raw) {
 export const getNode = id => state.nodes.find(node => node.id === id) || null;
 export const getRoots = () => state.nodes.filter(node => !node.parentId || !getNode(node.parentId));
 export const getChildren = parentId => state.nodes.filter(node => node.parentId === parentId);
+export const getLink = id => state.links.find(link => link.id === id) || null;
 
 export function getLevel(nodeId) {
   let level = 0;
@@ -58,20 +77,22 @@ export function getLevel(nodeId) {
 
 export const getMaxDepth = () => !state.nodes.length ? 0 : Math.max(...state.nodes.map(node => getLevel(node.id))) + 1;
 
-export function snapshotState() {
-  state.history.push(JSON.stringify({
+function serializeSnapshot() {
+  return JSON.stringify({
     company: state.company,
     updatedAt: state.updatedAt,
     nodes: state.nodes,
+    links: state.links,
     selectedNodeId: state.selectedNodeId,
     connectorType: state.connectorType,
+    linkStyle: state.linkStyle,
     autoLayout: state.autoLayout,
-  }));
+  });
+}
 
-  if (state.history.length > 80) {
-    state.history.shift();
-  }
-
+export function snapshotState() {
+  state.history.push(serializeSnapshot());
+  if (state.history.length > 80) state.history.shift();
   state.future = [];
 }
 
@@ -80,37 +101,23 @@ export function restoreFromSnapshot(serialized) {
   state.company = parsed.company || '';
   state.updatedAt = parsed.updatedAt || null;
   state.nodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+  state.links = Array.isArray(parsed.links) ? parsed.links : [];
   state.selectedNodeId = parsed.selectedNodeId || null;
   state.connectorType = parsed.connectorType || 'curved';
+  state.linkStyle = parsed.linkStyle || 'straight';
   state.autoLayout = typeof parsed.autoLayout === 'boolean' ? parsed.autoLayout : true;
   renderAll();
 }
 
 export function undo() {
   if (!state.history.length) return;
-  const current = JSON.stringify({
-    company: state.company,
-    updatedAt: state.updatedAt,
-    nodes: state.nodes,
-    selectedNodeId: state.selectedNodeId,
-    connectorType: state.connectorType,
-    autoLayout: state.autoLayout,
-  });
-  state.future.push(current);
+  state.future.push(serializeSnapshot());
   restoreFromSnapshot(state.history.pop());
 }
 
 export function redo() {
   if (!state.future.length) return;
-  const current = JSON.stringify({
-    company: state.company,
-    updatedAt: state.updatedAt,
-    nodes: state.nodes,
-    selectedNodeId: state.selectedNodeId,
-    connectorType: state.connectorType,
-    autoLayout: state.autoLayout,
-  });
-  state.history.push(current);
+  state.history.push(serializeSnapshot());
   restoreFromSnapshot(state.future.pop());
 }
 
@@ -124,7 +131,7 @@ export function addNode(parentId = '') {
     const parentNode = getNode(parentId);
     if (parentNode) {
       x = parentNode.x;
-      y = parentNode.y + NODE_DIMS.height + 86;
+      y = parentNode.y + (parentNode.height || NODE_DIMS.height) + 86;
     }
   } else {
     const rect = dom.canvasViewport.getBoundingClientRect();
@@ -142,6 +149,8 @@ export function addNode(parentId = '') {
     phone: '',
     x,
     y,
+    width: NODE_DIMS.width,
+    height: NODE_DIMS.height,
     rotation: 0,
   };
 
@@ -156,14 +165,7 @@ export function duplicateNode(id) {
   if (!source) return;
   snapshotState();
 
-  const copy = {
-    ...source,
-    id: crypto.randomUUID(),
-    name: `${source.name} copia`,
-    x: source.x + 40,
-    y: source.y + 40,
-  };
-
+  const copy = { ...source, id: crypto.randomUUID(), name: `${source.name} copia`, x: source.x + 40, y: source.y + 40 };
   state.nodes.push(copy);
   state.selectedNodeId = copy.id;
   if (state.autoLayout) applyLayout();
@@ -180,11 +182,8 @@ export function updateNode(id, field, value) {
   snapshotState();
   node[field] = normalizedValue;
 
-  if (field === 'parentId' && state.autoLayout) {
-    applyLayout();
-  } else {
-    renderAll();
-  }
+  if (field === 'parentId' && state.autoLayout) applyLayout();
+  else renderAll();
 }
 
 export function patchNodePosition(id, x, y) {
@@ -194,7 +193,14 @@ export function patchNodePosition(id, x, y) {
   node.y = y;
 }
 
-export function commitNodePositionChange() {
+export function patchNodeSize(id, width, height) {
+  const node = getNode(id);
+  if (!node) return;
+  node.width = Math.max(NODE_MIN_WIDTH, Math.min(NODE_MAX_WIDTH, width));
+  node.height = Math.max(NODE_MIN_HEIGHT, Math.min(NODE_MAX_HEIGHT, height));
+}
+
+export function commitTransientChange() {
   snapshotState();
 }
 
@@ -203,6 +209,7 @@ export function removeNode(id) {
 
   const idsToDelete = collectDescendants(id, new Set([id]));
   state.nodes = state.nodes.filter(node => !idsToDelete.has(node.id));
+  state.links = state.links.filter(link => !idsToDelete.has(link.fromId) && !idsToDelete.has(link.toId));
 
   idsToDelete.forEach(nodeId => state.collapsed.delete(nodeId));
 
@@ -233,12 +240,40 @@ export function toggleCollapse(id) {
   renderCanvas();
 }
 
+export function addLink(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return;
+
+  const exists = state.links.some(
+    link => (link.fromId === fromId && link.toId === toId) || (link.fromId === toId && link.toId === fromId)
+  );
+  if (exists) return;
+
+  snapshotState();
+  state.links.push({
+    id: crypto.randomUUID(),
+    fromId,
+    toId,
+    style: state.linkStyle,
+    color: '#111827',
+    thickness: 2.5,
+  });
+  renderCanvas();
+}
+
+export function removeLink(id) {
+  snapshotState();
+  state.links = state.links.filter(link => link.id !== id);
+  if (state.selectedLinkId === id) state.selectedLinkId = null;
+  renderCanvas();
+}
+
 export function importChart(raw) {
   snapshotState();
   const normalized = normalizeState(raw);
   state.company = normalized.company;
   state.updatedAt = normalized.updatedAt;
   state.nodes = normalized.nodes;
+  state.links = normalized.links;
   state.selectedNodeId = normalized.nodes[0]?.id || null;
   if (state.autoLayout) applyLayout();
   renderAll();
@@ -255,7 +290,7 @@ export function applyLayout() {
 
   roots.forEach(root => {
     const subtreeWidth = getSubtreeWidth(root.id);
-    root.x = currentX + subtreeWidth / 2 - NODE_DIMS.width / 2;
+    root.x = currentX + subtreeWidth / 2 - (root.width || NODE_DIMS.width) / 2;
     root.y = 60;
     layoutChildrenRecursive(root.id, root.y, currentX);
     currentX += subtreeWidth + HORIZONTAL_SPACING;
@@ -265,15 +300,14 @@ export function applyLayout() {
 }
 
 function getSubtreeWidth(nodeId) {
-  const children = getChildren(nodeId).filter(child => !state.collapsed.has(nodeId));
-  if (!children.length) return NODE_DIMS.width;
+  const node = getNode(nodeId);
+  const nodeWidth = node?.width || NODE_DIMS.width;
+  const children = getChildren(nodeId).filter(() => !state.collapsed.has(nodeId));
+  if (!children.length) return nodeWidth;
 
   let total = 0;
-  for (const child of children) {
-    total += getSubtreeWidth(child.id);
-  }
-
-  return total + (children.length - 1) * HORIZONTAL_SPACING;
+  for (const child of children) total += getSubtreeWidth(child.id);
+  return Math.max(nodeWidth, total + (children.length - 1) * HORIZONTAL_SPACING);
 }
 
 function layoutChildrenRecursive(parentId, parentY, startXForChildren) {
@@ -287,7 +321,7 @@ function layoutChildrenRecursive(parentId, parentY, startXForChildren) {
 
   children.forEach(child => {
     const childSubtreeWidth = getSubtreeWidth(child.id);
-    child.x = currentChildX + childSubtreeWidth / 2 - NODE_DIMS.width / 2;
+    child.x = currentChildX + childSubtreeWidth / 2 - (child.width || NODE_DIMS.width) / 2;
     child.y = childrenY;
     layoutChildrenRecursive(child.id, child.y, currentChildX);
     currentChildX += childSubtreeWidth + HORIZONTAL_SPACING;

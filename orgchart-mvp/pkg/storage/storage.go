@@ -32,7 +32,6 @@ func (s *Store) Load() (models.OrgChart, error) {
 	var chart models.OrgChart
 	b, err := os.ReadFile(s.dataFile)
 	if err != nil {
-		// Si el archivo no existe, devuelve un organigrama vacío en lugar de un error.
 		if os.IsNotExist(err) {
 			return models.OrgChart{}, nil
 		}
@@ -60,18 +59,19 @@ func (s *Store) Save(chart models.OrgChart) error {
 // EnsureSeedData crea un organigrama de ejemplo si no existe ninguno.
 func (s *Store) EnsureSeedData(exporter *export.Exporter) error {
 	if _, err := os.Stat(s.dataFile); err == nil {
-		return nil // El archivo ya existe
+		return nil
 	}
 
 	sample := models.OrgChart{
 		Company:   "Empresa Demo S.A.S.",
 		UpdatedAt: time.Now(),
 		Nodes: []models.Node{
-			{ID: "1", ParentID: "", Name: "Laura Gómez", Title: "Gerente General", Area: "Dirección", Email: "laura@empresa.com", Phone: "+57 300000001", X: 400, Y: 50},
-			{ID: "2", ParentID: "1", Name: "Carlos Ruiz", Title: "Director Financiero", Area: "Finanzas", Email: "carlos@empresa.com", Phone: "+57 300000002", X: 100, Y: 250},
-			{ID: "3", ParentID: "1", Name: "Ana Pérez", Title: "Directora de Tecnología", Area: "TI", Email: "ana@empresa.com", Phone: "+57 300000003", X: 400, Y: 250},
-			{ID: "4", ParentID: "1", Name: "Miguel Torres", Title: "Director Comercial", Area: "Ventas", Email: "miguel@empresa.com", Phone: "+57 300000004", X: 700, Y: 250},
+			{ID: "1", ParentID: "", Name: "Laura Gómez", Title: "Gerente General", Area: "Dirección", Email: "laura@empresa.com", Phone: "+57 300000001", X: 400, Y: 50, Width: 308, Height: 148},
+			{ID: "2", ParentID: "1", Name: "Carlos Ruiz", Title: "Director Financiero", Area: "Finanzas", Email: "carlos@empresa.com", Phone: "+57 300000002", X: 100, Y: 250, Width: 308, Height: 148},
+			{ID: "3", ParentID: "1", Name: "Ana Pérez", Title: "Directora de Tecnología", Area: "TI", Email: "ana@empresa.com", Phone: "+57 300000003", X: 400, Y: 250, Width: 308, Height: 148},
+			{ID: "4", ParentID: "1", Name: "Miguel Torres", Title: "Director Comercial", Area: "Ventas", Email: "miguel@empresa.com", Phone: "+57 300000004", X: 700, Y: 250, Width: 308, Height: 148},
 		},
+		Links: []models.Link{},
 	}
 
 	if err := s.Save(sample); err != nil {

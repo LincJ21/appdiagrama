@@ -10,5 +10,10 @@ export const NODE_DIMS = {
   height: 148,
 };
 
+export const NODE_MIN_WIDTH = 220;
+export const NODE_MIN_HEIGHT = 120;
+export const NODE_MAX_WIDTH = 560;
+export const NODE_MAX_HEIGHT = 420;
+
 export const HORIZONTAL_SPACING = 360;
 export const VERTICAL_SPACING = 230;

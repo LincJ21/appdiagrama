@@ -10,12 +10,15 @@ import {
   undo,
   redo,
   patchNodePosition,
-  commitNodePositionChange,
+  patchNodeSize,
+  commitTransientChange,
   importChart,
+  addLink,
+  removeLink,
 } from './state.js';
-import { renderAll, renderNodeList, renderCanvas, drawConnectors } from './render.js';
+import { renderAll, renderNodeList, renderInspector, renderCanvas, drawConnectors } from './render.js';
 import { saveAll, regenerateHTML, exportPDF, exportPNG, downloadJSON } from './api.js';
-import { ZOOM_IN_FACTOR, WHEEL_ZOOM_FACTOR, MIN_SCALE, MAX_SCALE, NODE_DIMS } from './config.js';
+import { ZOOM_IN_FACTOR, WHEEL_ZOOM_FACTOR, MIN_SCALE, MAX_SCALE, NODE_DIMS, NODE_MIN_WIDTH, NODE_MIN_HEIGHT } from './config.js';
 
 let statusTimeout = null;
 
@@ -34,9 +37,7 @@ export function setStatus(message, type = 'info', duration = 3200) {
 }
 
 export function setupEventListeners() {
-  dom.companyInput.addEventListener('input', e => {
-    state.company = e.target.value;
-  });
+  dom.companyInput.addEventListener('input', e => { state.company = e.target.value; });
 
   dom.searchInput.addEventListener('input', e => {
     state.searchTerm = e.target.value.trim().toLowerCase();
@@ -68,32 +69,34 @@ export function setupEventListeners() {
     }
   });
 
-  dom.undoBtn.addEventListener('click', () => {
-    undo();
-    dom.companyInput.value = state.company;
-    setStatus('Se deshizo el último cambio.', 'info');
-  });
-
-  dom.redoBtn.addEventListener('click', () => {
-    redo();
-    dom.companyInput.value = state.company;
-    setStatus('Se rehizo el cambio.', 'info');
-  });
+  dom.undoBtn.addEventListener('click', () => { undo(); dom.companyInput.value = state.company; setStatus('Se deshizo el último cambio.', 'info'); });
+  dom.redoBtn.addEventListener('click', () => { redo(); dom.companyInput.value = state.company; setStatus('Se rehizo el cambio.', 'info'); });
 
   dom.autoLayoutBtn.addEventListener('click', () => {
     state.autoLayout = !state.autoLayout;
     dom.autoLayoutBtn.textContent = `Auto layout: ${state.autoLayout ? 'ON' : 'OFF'}`;
     if (state.autoLayout) applyLayout();
-    else setStatus('Modo manual activado.', 'info');
+    else setStatus('Modo manual activado. Ahora puedes mover y redimensionar libremente.', 'info');
+  });
+
+  dom.connectModeBtn.addEventListener('click', () => {
+    state.connectMode = !state.connectMode;
+    state.connectSourceId = null;
+    dom.connectModeBtn.textContent = state.connectMode ? 'Conectando: ON' : 'Conectar nodos';
+    dom.connectModeBtn.classList.toggle('btn-primary', state.connectMode);
+    dom.connectModeBtn.classList.toggle('btn-secondary', !state.connectMode);
+    setStatus(state.connectMode ? 'Selecciona el nodo origen y luego el destino.' : 'Modo conexión desactivado.', 'info');
+    renderCanvas();
+  });
+
+  dom.linkStyleBtn.addEventListener('click', () => {
+    state.linkStyle = state.linkStyle === 'straight' ? 'cable' : 'straight';
+    dom.linkStyleBtn.textContent = state.linkStyle === 'straight' ? 'Línea negra' : 'Cable curvo';
   });
 
   dom.zoomInBtn.addEventListener('click', () => zoomAtCenter(ZOOM_IN_FACTOR));
   dom.zoomOutBtn.addEventListener('click', () => zoomAtCenter(1 / ZOOM_IN_FACTOR));
-  dom.zoomResetBtn.addEventListener('click', () => {
-    state.view.scale = 1;
-    updateZoomLabel();
-    centerChart(true);
-  });
+  dom.zoomResetBtn.addEventListener('click', () => { state.view.scale = 1; updateZoomLabel(); centerChart(true); });
 
   dom.centerBtn.addEventListener('click', () => centerChart(false));
   dom.fitBtn.addEventListener('click', fitChart);
@@ -101,9 +104,10 @@ export function setupEventListeners() {
   dom.themeToggleBtn.addEventListener('click', toggleTheme);
 
   dom.chartStage.addEventListener('click', handleStageClick);
+  dom.chartStage.addEventListener('pointerdown', startInteraction);
+  window.addEventListener('pointermove', movePointer);
+  window.addEventListener('pointerup', endPointer);
   dom.canvasViewport.addEventListener('pointerdown', startPan);
-  window.addEventListener('pointermove', movePan);
-  window.addEventListener('pointerup', endPan);
   dom.canvasViewport.addEventListener('wheel', handleZoom, { passive: false });
   window.addEventListener('resize', drawConnectors);
 
@@ -111,22 +115,18 @@ export function setupEventListeners() {
     const meta = e.ctrlKey || e.metaKey;
 
     if (meta && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      undo();
-      dom.companyInput.value = state.company;
-      return;
+      e.preventDefault(); undo(); dom.companyInput.value = state.company; return;
     }
-
     if (meta && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
-      e.preventDefault();
-      redo();
-      dom.companyInput.value = state.company;
-      return;
+      e.preventDefault(); redo(); dom.companyInput.value = state.company; return;
     }
-
     if (e.key === 'Delete' && state.selectedNodeId) {
       removeNode(state.selectedNodeId);
       setStatus('Nodo eliminado.', 'success');
+    }
+    if (e.key === 'Escape' && state.connectMode) {
+      state.connectSourceId = null;
+      renderCanvas();
     }
   });
 
@@ -139,31 +139,39 @@ export function setupEventListeners() {
   });
 
   dom.inspectorContent.addEventListener('click', e => {
+    const removeLinkBtn = e.target.closest('[data-remove-link]');
+    if (removeLinkBtn) {
+      removeLink(removeLinkBtn.dataset.removeLink);
+      renderInspector();
+      setStatus('Conexión eliminada.', 'success');
+      return;
+    }
+
     const actionEl = e.target.closest('[data-inspector-action]');
     if (!actionEl || !state.selectedNodeId) return;
 
     const action = actionEl.dataset.inspectorAction;
     const id = state.selectedNodeId;
 
-    if (action === 'add-child') {
-      addNode(id);
-      setStatus('Nodo hijo agregado.', 'success');
-    }
-    if (action === 'duplicate') {
-      duplicateNode(id);
-      setStatus('Nodo duplicado.', 'success');
-    }
-    if (action === 'remove') {
-      removeNode(id);
-      setStatus('Nodo eliminado.', 'success');
-    }
+    if (action === 'add-child') { addNode(id); setStatus('Nodo hijo agregado.', 'success'); }
+    if (action === 'duplicate') { duplicateNode(id); setStatus('Nodo duplicado.', 'success'); }
+    if (action === 'remove') { removeNode(id); setStatus('Nodo eliminado.', 'success'); }
   });
 
   dom.inspectorContent.addEventListener('input', e => {
     const input = e.target;
-    if (input.dataset.nodeField && state.selectedNodeId && input.tagName !== 'SELECT') {
-      updateNode(state.selectedNodeId, input.dataset.nodeField, input.value);
+    if (!input.dataset.nodeField || !state.selectedNodeId || input.tagName === 'SELECT') return;
+
+    if (input.dataset.nodeField === 'width' || input.dataset.nodeField === 'height') {
+      const node = state.nodes.find(n => n.id === state.selectedNodeId);
+      if (!node) return;
+      const value = Math.max(Number(input.value) || 0, input.dataset.nodeField === 'width' ? NODE_MIN_WIDTH : NODE_MIN_HEIGHT);
+      node[input.dataset.nodeField] = value;
+      renderCanvas();
+      return;
     }
+
+    updateNode(state.selectedNodeId, input.dataset.nodeField, input.value);
   });
 
   dom.inspectorContent.addEventListener('change', e => {
@@ -181,18 +189,30 @@ function handleStageClick(event) {
     const id = quickAction.dataset.id;
     const action = quickAction.dataset.nodeAction;
 
-    if (action === 'add-child') {
-      addNode(id);
-      setStatus('Nodo hijo agregado.', 'success');
-    }
-
-    if (action === 'toggle') {
-      toggleCollapse(id);
-    }
+    if (action === 'add-child') { addNode(id); setStatus('Nodo hijo agregado.', 'success'); }
+    if (action === 'toggle') toggleCollapse(id);
     return;
   }
 
   const nodeEl = event.target.closest('.chart-node');
+
+  if (nodeEl && state.connectMode) {
+    event.stopPropagation();
+    const id = nodeEl.dataset.id;
+
+    if (!state.connectSourceId) {
+      state.connectSourceId = id;
+      setStatus('Nodo origen seleccionado. Ahora elige el destino.', 'info');
+    } else if (state.connectSourceId !== id) {
+      addLink(state.connectSourceId, id);
+      setStatus('Conexión creada correctamente.', 'success');
+      state.connectSourceId = null;
+    }
+
+    renderCanvas();
+    return;
+  }
+
   if (nodeEl) {
     state.selectedNodeId = nodeEl.dataset.id;
     renderAll();
@@ -212,6 +232,22 @@ function toggleTheme() {
   dom.themeToggleBtn.textContent = next === 'dark' ? 'Tema oscuro' : 'Tema claro';
 }
 
+function startInteraction(event) {
+  if (state.connectMode) return;
+
+  const handle = event.target.closest('[data-resize-handle]');
+  if (handle) {
+    event.stopPropagation();
+    startNodeResize(event, handle.dataset.resizeHandle);
+    return;
+  }
+
+  const nodeEl = event.target.closest('.chart-node');
+  if (nodeEl && !event.target.closest('[data-node-action]') && !state.autoLayout) {
+    startNodeDrag(event, nodeEl);
+  }
+}
+
 function startNodeDrag(event, nodeEl) {
   event.stopPropagation();
 
@@ -229,23 +265,30 @@ function startNodeDrag(event, nodeEl) {
     moved: false,
   };
 
-  if (state.selectedNodeId !== nodeId) {
-    state.selectedNodeId = nodeId;
-    renderAll();
-  }
-
+  if (state.selectedNodeId !== nodeId) { state.selectedNodeId = nodeId; renderAll(); }
   dom.canvasViewport.classList.add('dragging-node');
+}
+
+function startNodeResize(event, nodeId) {
+  const node = state.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  state.resizeState = {
+    pointerId: event.pointerId,
+    nodeId,
+    startX: event.clientX,
+    startY: event.clientY,
+    originWidth: node.width,
+    originHeight: node.height,
+  };
+
+  dom.canvasViewport.classList.add('resizing-node');
 }
 
 function startPan(event) {
   const nodeEl = event.target.closest('.chart-node');
-  if (nodeEl && !event.target.closest('[data-node-action]')) {
-    if (!state.autoLayout) {
-      startNodeDrag(event, nodeEl);
-      return;
-    }
-  }
-
+  const handle = event.target.closest('[data-resize-handle]');
+  if (nodeEl || handle) return;
   if (event.target.closest('button, input, select, label')) return;
 
   state.panState = {
@@ -259,7 +302,25 @@ function startPan(event) {
   dom.canvasViewport.classList.add('dragging');
 }
 
-function movePan(event) {
+function movePointer(event) {
+  if (state.resizeState && event.pointerId === state.resizeState.pointerId) {
+    const resize = state.resizeState;
+    const deltaX = (event.clientX - resize.startX) / state.view.scale;
+    const deltaY = (event.clientY - resize.startY) / state.view.scale;
+
+    patchNodeSize(resize.nodeId, resize.originWidth + deltaX, resize.originHeight + deltaY);
+
+    const nodeEl = dom.chartStage.querySelector(`.chart-node[data-id="${resize.nodeId}"]`);
+    const node = state.nodes.find(n => n.id === resize.nodeId);
+    if (nodeEl && node) {
+      nodeEl.style.width = `${node.width}px`;
+      nodeEl.style.minHeight = `${node.height}px`;
+    }
+
+    drawConnectors();
+    return;
+  }
+
   if (state.nodeDragState && event.pointerId === state.nodeDragState.pointerId) {
     const drag = state.nodeDragState;
     const nextX = drag.originX + (event.clientX - drag.startX) / state.view.scale;
@@ -269,10 +330,7 @@ function movePan(event) {
     drag.moved = true;
 
     const nodeEl = dom.chartStage.querySelector(`.chart-node[data-id="${drag.nodeId}"]`);
-    if (nodeEl) {
-      nodeEl.style.left = `${nextX}px`;
-      nodeEl.style.top = `${nextY}px`;
-    }
+    if (nodeEl) { nodeEl.style.left = `${nextX}px`; nodeEl.style.top = `${nextY}px`; }
 
     drawConnectors();
     return;
@@ -285,14 +343,22 @@ function movePan(event) {
   applyView();
 }
 
-function endPan(event) {
+function endPointer(event) {
+  if (state.resizeState && event.pointerId === state.resizeState.pointerId) {
+    state.resizeState = null;
+    dom.canvasViewport.classList.remove('resizing-node');
+    commitTransientChange();
+    renderCanvas();
+    setStatus('Tamaño del nodo actualizado.', 'success', 1800);
+  }
+
   if (state.nodeDragState && event.pointerId === state.nodeDragState.pointerId) {
     const moved = state.nodeDragState.moved;
     state.nodeDragState = null;
     dom.canvasViewport.classList.remove('dragging-node');
 
     if (moved) {
-      commitNodePositionChange();
+      commitTransientChange();
       renderCanvas();
       setStatus('Posición actualizada.', 'success', 1800);
     }
@@ -360,19 +426,12 @@ function fitChart() {
 }
 
 function getChartBounds() {
-  if (!state.nodes.length) {
-    return { minX: 0, minY: 0, maxX: 680, maxY: 420 };
-  }
+  if (!state.nodes.length) return { minX: 0, minY: 0, maxX: 680, maxY: 420 };
 
   const xs = state.nodes.map(n => n.x);
   const ys = state.nodes.map(n => n.y);
 
-  return {
-    minX: Math.min(...xs),
-    minY: Math.min(...ys),
-    maxX: Math.max(...xs),
-    maxY: Math.max(...ys),
-  };
+  return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
 function focusNode(id) {

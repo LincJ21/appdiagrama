@@ -14,11 +14,8 @@ export async function loadInitialData() {
 
     dom.companyInput.value = state.company || '';
 
-    if (state.autoLayout && state.nodes.length) {
-      applyLayout();
-    } else {
-      renderAll();
-    }
+    if (state.autoLayout && state.nodes.length) applyLayout();
+    else renderAll();
 
     setStatus('Organigrama cargado correctamente.', 'success');
     requestAnimationFrame(() => centerChart(true));
@@ -32,10 +29,7 @@ export async function saveAll() {
   try {
     state.company = dom.companyInput.value.trim() || 'Mi Organigrama';
 
-    const payload = {
-      company: state.company,
-      nodes: state.nodes,
-    };
+    const payload = { company: state.company, nodes: state.nodes, links: state.links };
 
     const res = await fetch(`${API_URL}/orgchart`, {
       method: 'POST',
@@ -60,7 +54,6 @@ export async function regenerateHTML() {
   try {
     const res = await fetch(`${API_URL}/export/html`);
     if (!res.ok) throw new Error('Error al regenerar HTML');
-
     await res.json();
     setStatus('Exportación HTML regenerada.', 'success');
   } catch (error) {
@@ -76,15 +69,8 @@ export function exportPDF() {
     margin: [8, 8, 8, 8],
     filename: `${company}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      backgroundColor: '#eef4fc',
-    },
-    jsPDF: {
-      unit: 'mm',
-      format: 'a3',
-      orientation: 'landscape',
-    },
+    html2canvas: { scale: 2, backgroundColor: '#eef4fc' },
+    jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' },
   }).from(dom.chartStage).save();
 
   setStatus('PDF exportado desde el navegador.', 'success');
@@ -127,11 +113,7 @@ export async function exportPNG() {
       setStatus('PNG exportado correctamente.', 'success');
     };
 
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      setStatus('No se pudo exportar el PNG.', 'error');
-    };
-
+    image.onerror = () => { URL.revokeObjectURL(url); setStatus('No se pudo exportar el PNG.', 'error'); };
     image.src = url;
   } catch (error) {
     console.error(error);
@@ -144,6 +126,7 @@ export function downloadJSON() {
     company: dom.companyInput.value.trim() || state.company || 'Mi Organigrama',
     updatedAt: state.updatedAt,
     nodes: state.nodes,
+    links: state.links,
   };
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
