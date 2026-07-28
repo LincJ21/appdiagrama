@@ -17,7 +17,11 @@ type Exporter struct {
 
 // NewExporter crea una nueva instancia de Exporter.
 func NewExporter(exportPath string) *Exporter {
-	tpl := template.Must(template.New("export").Parse(htmlTemplate))
+	tpl := template.Must(template.New("export").Funcs(template.FuncMap{
+		"add": func(a, b float64) float64 {
+			return a + b
+		},
+	}).Parse(htmlTemplate))
 	return &Exporter{
 		exportPath: exportPath,
 		tpl:        tpl,
@@ -36,10 +40,17 @@ func (e *Exporter) GenerateHTML(chart models.OrgChart) error {
 	}
 	defer f.Close()
 
+	nodeMap := make(map[string]models.Node)
+	for _, node := range chart.Nodes {
+		nodeMap[node.ID] = node
+	}
+
 	data := map[string]interface{}{
 		"Company":   chart.Company,
 		"UpdatedAt": chart.UpdatedAt,
 		"Roots":     buildTree(chart.Nodes),
+		"Nodes":     chart.Nodes,
+		"NodeMap":   nodeMap,
 	}
 
 	return e.tpl.Execute(f, data)
@@ -119,7 +130,16 @@ const htmlTemplate = `<!DOCTYPE html>
     .hero h1 { margin: 0; font-size: 32px; }
     .hero p { margin: 8px 0 0; color: rgba(255,255,255,.85); }
     .board { position: relative; overflow: auto; padding: 22px; border-radius: 28px; background: var(--white); border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); }
-    .node { width: 280px; border-radius: 22px; background: white; border: 1px solid var(--border-color); box-shadow: var(--shadow); padding: 18px; position: absolute; top: var(--y, 0); left: var(--x, 0); transform: rotate(var(--rotation, 0deg)); transform-origin: center center; }
+    .connector-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      z-index: 0;
+    }
+    .node { width: 280px; border-radius: 22px; background: white; border: 1px solid var(--border-color); box-shadow: var(--shadow); padding: 18px; position: absolute; z-index: 1; top: var(--y, 0); left: var(--x, 0); transform: rotate(var(--rotation, 0deg)); transform-origin: center center; }
     .node.root { color: var(--text-on-brand); background: linear-gradient(135deg, var(--brand-900), var(--brand-700)); }
     .node.root .title, .node.root .meta, .node.root .sub { color: rgba(255,255,255,.85); }
     .top { display: flex; gap: 14px; align-items: flex-start; }
@@ -138,6 +158,20 @@ const htmlTemplate = `<!DOCTYPE html>
       <p>Actualizado: {{.UpdatedAt.Format "2006-01-02 15:04:05"}}</p>
     </section>
     <section class="board">
+      <svg class="connector-layer">
+        {{$nodeMap := .NodeMap}}
+        {{range .Nodes}}
+          {{$child := .}}
+          {{if $child.ParentID}}
+            {{with index $nodeMap $child.ParentID}}
+              <line 
+                x1="{{add .X 140}}" y1="{{add .Y 136}}" 
+                x2="{{add $child.X 140}}" y2="{{$child.Y}}" 
+                stroke="#9ca3af" stroke-width="2" />
+            {{end}}
+          {{end}}
+        {{end}}
+      </svg>
       {{range .Roots}}{{template "node" .}}{{end}}
     </section>
   </div>

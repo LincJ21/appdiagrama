@@ -1,6 +1,6 @@
 import { dom } from './dom.js';
-import { NODE_DIMS } from './config.js';
-import { renderAll, renderCanvas, drawConnectors } from './render.js';
+import { NODE_DIMS, HORIZONTAL_SPACING, VERTICAL_SPACING } from './config.js';
+import { renderAll, renderCanvas } from './render.js';
 
 export const state = {
   company: '',
@@ -130,25 +130,55 @@ export function toggleCollapse(id) {
 
 export function applyLayout() {
   if (!state.autoLayout || !state.nodes.length) return;
+
   const roots = getRoots();
-  const hSpacing = 340, vSpacing = 220;
-  roots.forEach((root, index) => {
-    root.x = 320 + index * hSpacing;
-    root.y = 120;
-    arrangeChildren(root.id, root.x, root.y, hSpacing, vSpacing);
+  let currentX = 50; // Posición X inicial para la primera raíz
+
+  roots.forEach(root => {
+    const subtreeWidth = getSubtreeWidth(root.id);
+    // Centrar la raíz sobre su subárbol
+    root.x = currentX + (subtreeWidth / 2) - (NODE_DIMS.width / 2);
+    root.y = 50; // Posición Y fija para las raíces
+
+    layoutChildrenRecursive(root.id, root.x, root.y, currentX);
+
+    currentX += subtreeWidth + HORIZONTAL_SPACING; // Mover a la siguiente posición X para la próxima raíz
   });
   renderCanvas();
 }
 
-function arrangeChildren(parentId, parentX, parentY, hSpacing, vSpacing) {
+// Helper para obtener el ancho total de un subárbol
+function getSubtreeWidth(nodeId) {
+  const children = getChildren(nodeId);
+  if (children.length === 0) {
+    return NODE_DIMS.width; // El ancho de un solo nodo
+  }
+
+  let totalChildrenWidth = 0;
+  for (const child of children) {
+    totalChildrenWidth += getSubtreeWidth(child.id);
+  }
+  // Añadir el espaciado entre los hijos
+  return totalChildrenWidth + (children.length - 1) * HORIZONTAL_SPACING;
+}
+
+// Función recursiva para organizar los hijos
+function layoutChildrenRecursive(parentId, parentX, parentY, startXForChildren) {
   const children = getChildren(parentId);
   if (!children.length) return;
-  const isVertical = state.layoutMode === 'tree';
-  const spread = Math.max(1, children.length - 1);
+
+  let currentChildX = startXForChildren;
+  const childrenY = parentY + VERTICAL_SPACING;
+
   children.forEach((child, index) => {
-    const offset = (index - spread / 2) * (isVertical ? hSpacing : vSpacing);
-    child.x = isVertical ? parentX + offset : parentX + hSpacing;
-    child.y = isVertical ? parentY + vSpacing : parentY + offset;
-    arrangeChildren(child.id, child.x, child.y, hSpacing, vSpacing);
+    const childSubtreeWidth = getSubtreeWidth(child.id);
+    // Posicionar el nodo hijo
+    child.x = currentChildX + (childSubtreeWidth / 2) - (NODE_DIMS.width / 2);
+    child.y = childrenY;
+
+    // Llamada recursiva para los hijos de este nodo
+    layoutChildrenRecursive(child.id, child.x, child.y, currentChildX);
+
+    currentChildX += childSubtreeWidth + HORIZONTAL_SPACING;
   });
 }

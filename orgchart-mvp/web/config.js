@@ -9,3 +9,6 @@ export const NODE_DIMS = {
   width: 280,
   height: 136,
 };
+
+export const HORIZONTAL_SPACING = 340; // Espacio horizontal entre nodos hermanos
+export const VERTICAL_SPACING = 220;   // Espacio vertical entre niveles

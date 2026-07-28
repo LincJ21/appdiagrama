@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
@@ -6,170 +6,90 @@
   <title>Organigrama exportado</title>
   <style>
     :root {
-       
-      --brand-900: #022D69;
-      --brand-700: #004AAD;
-      --brand-500: #2578CA;
-      --brand-100: #C4DBFA;
-
-       
-      --gray-900: #111827;
-      --gray-700: #374151;
-      --gray-500: #6B7280;
-      --gray-300: #D1D5DB;
-      --gray-100: #F3F4F6;
-      --white: #ffffff;
-
-       
-      --text-primary: var(--gray-900);
-      --text-secondary: var(--gray-700);
-      --text-on-brand: var(--white);
+      --brand-900: #022D69; --brand-700: #004AAD; --brand-500: #2578CA; --brand-100: #C4DBFA;
+      --gray-900: #111827; --gray-700: #374151; --gray-500: #6B7280; --gray-300: #D1D5DB; --gray-100: #F3F4F6; --white: #ffffff;
+      --text-primary: var(--gray-900); --text-secondary: var(--gray-700); --text-on-brand: var(--white);
       --border-color: var(--gray-300);
       --shadow: 0 10px 15px -3px rgba(0,0,0,.07), 0 4px 6px -2px rgba(0,0,0,.05);
       --shadow-lg: 0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Inter, Arial, sans-serif;
-      color: var(--text-primary);
-      background: linear-gradient(180deg, #F3F4F6 0%, #F9FAFB 100%);
-    }
-    .page {
-      padding: 28px;
-    }
-    .hero {
-      padding: 22px 24px;
-      border-radius: 26px;
-      background: linear-gradient(135deg, var(--brand-900), var(--brand-700));
-      color: var(--text-on-brand);
-      box-shadow: var(--shadow-lg);
-      margin-bottom: 24px;
-    }
-    .hero h1 {
-      margin: 0;
-      font-size: 32px;
-    }
-    .hero p {
-      margin: 8px 0 0;
-      color: rgba(255,255,255,.85);
-    }
-    .board {
-      position: relative;
-      overflow: auto;
-      padding: 22px;
-      border-radius: 28px;
-      background: var(--white);
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-lg);
-    }
-    .node {
-      width: 280px;
-      border-radius: 22px;
-      background: white;
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow);
-      padding: 18px;
-      position: relative;
+    body { margin: 0; font-family: Inter, Arial, sans-serif; color: var(--text-primary); background: linear-gradient(180deg, #F3F4F6 0%, #F9FAFB 100%); }
+    .page { padding: 28px; }
+    .hero { padding: 22px 24px; border-radius: 26px; background: linear-gradient(135deg, var(--brand-900), var(--brand-700)); color: var(--text-on-brand); box-shadow: var(--shadow-lg); margin-bottom: 24px; }
+    .hero h1 { margin: 0; font-size: 32px; }
+    .hero p { margin: 8px 0 0; color: rgba(255,255,255,.85); }
+    .board { position: relative; overflow: auto; padding: 22px; border-radius: 28px; background: var(--white); border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); }
+    .connector-layer {
       position: absolute;
-      top: var(--y, 0);
-      left: var(--x, 0);
-      transform: rotate(var(--rotation, 0deg));
-      transform-origin: center center;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      z-index: 0;
     }
-    .node.root {
-      color: var(--text-on-brand);
-      background: linear-gradient(135deg, var(--brand-900), var(--brand-700));
-    }
-    .node.root .title,
-    .node.root .meta,
-    .node.root .sub {
-      color: rgba(255,255,255,.85);
-    }
-    .top {
-      display: flex;
-      gap: 14px;
-      align-items: flex-start;
-    }
-    .avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 16px;
-      display: grid;
-      place-items: center;
-      font-weight: 700;
-      background: var(--brand-100);
-      color: var(--brand-700);
-    }
-    .node.root .avatar {
-      background: rgba(255,255,255,.1);
-      color: var(--white);
-    }
-    .name {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 800;
-    }
-    .title {
-      margin-top: 6px;
-      font-weight: 700;
-      color: var(--brand-700);
-    }
-    .sub {
-      margin-top: 4px;
-      color: var(--text-secondary);
-      font-size: 13px;
-    }
-    .meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
-      font-size: 12px;
-      color: var(--text-secondary);
-    }
+    .node { width: 280px; border-radius: 22px; background: white; border: 1px solid var(--border-color); box-shadow: var(--shadow); padding: 18px; position: absolute; z-index: 1; top: var(--y, 0); left: var(--x, 0); transform: rotate(var(--rotation, 0deg)); transform-origin: center center; }
+    .node.root { color: var(--text-on-brand); background: linear-gradient(135deg, var(--brand-900), var(--brand-700)); }
+    .node.root .title, .node.root .meta, .node.root .sub { color: rgba(255,255,255,.85); }
+    .top { display: flex; gap: 14px; align-items: flex-start; }
+    .avatar { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; font-weight: 700; background: var(--brand-100); color: var(--brand-700); }
+    .node.root .avatar { background: rgba(255,255,255,.1); color: var(--white); }
+    .name { margin: 0; font-size: 18px; font-weight: 800; }
+    .title { margin-top: 6px; font-weight: 700; color: var(--brand-700); }
+    .sub { margin-top: 4px; color: var(--text-secondary); font-size: 13px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--text-secondary); }
   </style>
 </head>
 <body>
   <div class="page">
     <section class="hero">
-      <h1></h1>
-      <p>Actualizado: 2026-07-28 07:23:19</p>
+      <h1>Mi Organigrama</h1>
+      <p>Actualizado: 2026-07-28 08:34:30</p>
     </section>
-
     <section class="board">
+      <svg class="connector-layer">
+        
+        
+          
+          
+        
+          
+          
+        
+      </svg>
       
-    <div class="node root" style="--x: 320px; --y: 120px; --rotation: 0deg;">
-      <div class="top">
-        <div class="avatar">ND</div>
-        <div>
-          <div class="name">Nueva dirección</div>
-          <div class="title">Cargo principal</div>
-          <div class="sub"></div>
-          <div class="meta">
-            
-            
-          </div>
-        </div>
+<div class="node root" style="--x: 50px; --y: 50px; --rotation: 0deg;">
+  <div class="top">
+    <div class="avatar">ND</div>
+    <div>
+      <div class="name">Nueva dirección</div>
+      <div class="title">Cargo principal</div>
+      <div class="sub"></div>
+      <div class="meta">
+        
+        
       </div>
     </div>
-    
+  </div>
+</div>
 
-    <div class="node root" style="--x: 660px; --y: 120px; --rotation: 0deg;">
-      <div class="top">
-        <div class="avatar">ND</div>
-        <div>
-          <div class="name">Nueva dirección</div>
-          <div class="title">Cargo principal</div>
-          <div class="sub"></div>
-          <div class="meta">
-            
-            
-          </div>
-        </div>
+
+<div class="node root" style="--x: 670px; --y: 50px; --rotation: 0deg;">
+  <div class="top">
+    <div class="avatar">ND</div>
+    <div>
+      <div class="name">Nueva dirección</div>
+      <div class="title">Cargo principal</div>
+      <div class="sub"></div>
+      <div class="meta">
+        
+        
       </div>
     </div>
-    
+  </div>
+</div>
+
 
     </section>
   </div>

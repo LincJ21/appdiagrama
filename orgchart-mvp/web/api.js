@@ -1,5 +1,5 @@
 import { API_URL } from './config.js';
-import { state, normalizeState } from './state.js';
+import { state, normalizeState, applyLayout } from './state.js';
 import { renderAll } from './render.js';
 import { setStatus, centerChart } from './events.js';
 import { dom } from './dom.js';
@@ -12,6 +12,10 @@ export async function loadInitialData() {
 
     state.selectedNodeId = (state.nodes.filter(n => !n.parentId)[0] || state.nodes[0] || {}).id || null;
     dom.companyInput.value = state.company || '';
+
+    if (state.autoLayout) {
+      applyLayout();
+    }
 
     renderAll();
     setStatus('Organigrama cargado correctamente.', 'success');
