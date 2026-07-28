@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OrgChart MVP</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Barra lateral izquierda -->
+    <aside class="sidebar">
+      <div class="sidebar-block">
+        <label for="companyInput">Nombre de la empresa</label>
+        <input id="companyInput" type="text" placeholder="Mi Empresa" />
+      </div>
+
+      <div class="sidebar-block" id="statsGrid">
+        <!-- Las estadísticas se renderizarán aquí -->
+      </div>
+
+      <div class="sidebar-block">
+        <label for="searchInput">Buscar nodo</label>
+        <input id="searchInput" type="search" placeholder="Buscar por nombre, cargo..." />
+      </div>
+
+      <div class="sidebar-block node-list-container">
+        <div class="panel-header">
+          <h3>Nodos del organigrama</h3>
+          <button id="addRootBtn" class="btn btn-ghost" title="Agregar raíz">＋ Raíz</button>
+        </div>
+        <div id="nodeList" class="scroll-area">
+          <!-- La lista de nodos se renderizará aquí -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- Área principal del lienzo -->
+    <main class="main-content">
+      <header class="main-header">
+        <div class="header-title">
+          <h1>Editor de Organigrama</h1>
+          <div id="status" class="status">Cargando...</div>
+        </div>
+        <div class="header-actions">
+          <button id="saveBtn" class="btn btn-primary">Guardar cambios</button>
+          <div class="btn-group">
+            <button id="exportHtmlBtn" class="btn">Regenerar HTML</button>
+            <button id="exportPdfBtn" class="btn">Exportar PDF</button>
+          </div>
+        </div>
+      </header>
+
+      <div id="canvasViewport" class="canvas-viewport">
+        <div id="chartStage">
+          <!-- El organigrama se renderizará aquí -->
+        </div>
+      </div>
+
+      <div class="canvas-controls">
+        <button id="zoomOutBtn" title="Alejar">-</button>
+        <span id="zoomValue">100%</span>
+        <button id="zoomInBtn" title="Acercar">+</button>
+        <button id="zoomResetBtn" title="Restablecer zoom">1:1</button>
+        <button id="centerBtn" title="Centrar organigrama">Centrar</button>
+        <button id="toggleConnectorsBtn" title="Cambiar tipo de conector">Curva</button>
+      </div>
+    </main>
+
+    <!-- Barra lateral derecha -->
+    <aside class="sidebar inspector">
+      <div class="panel-header">
+        <h3>Inspector</h3>
+      </div>
+      <div id="inspectorContent" class="scroll-area">
+        <!-- El inspector del nodo seleccionado se renderizará aquí -->
+      </div>
+    </aside>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

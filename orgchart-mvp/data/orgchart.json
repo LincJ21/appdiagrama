@@ -1,0 +1,30 @@
+{
+  "company": "",
+  "updatedAt": "2026-07-28T07:23:19.794864997-05:00",
+  "nodes": [
+    {
+      "id": "d7cd7158-5ce9-4b9e-ab82-873264521681",
+      "parentId": "",
+      "name": "Nueva dirección",
+      "title": "Cargo principal",
+      "area": "",
+      "email": "",
+      "phone": "",
+      "x": 320,
+      "y": 120,
+      "rotation": 0
+    },
+    {
+      "id": "547fa5fd-2367-459c-9a3a-72e4c202417c",
+      "parentId": "",
+      "name": "Nueva dirección",
+      "title": "Cargo principal",
+      "area": "",
+      "email": "",
+      "phone": "",
+      "x": 660,
+      "y": 120,
+      "rotation": 0
+    }
+  ]
+}

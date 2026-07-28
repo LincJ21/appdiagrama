@@ -1,0 +1,19 @@
+HEX:#C4DBFA
+RGB: (196, 219, 250)
+CMYK: (22,12, 0, 2)
+Pantone: Pastel Blue 290 C
+
+HEX:#022D69
+RGB: (2, 45,105)
+CMYK: (98, 57, 0, 59)
+Pantone:Dark Blue 2768 C
+
+HEX:#004AAD
+RGB: (0, 74,173)
+CMYK: (100, 57, 0, 32)
+Pantone: Blue 293 C
+
+HEX:#2578CA
+RGB: (37,120, 202)
+CMYK: (82, 41, 0, 21)
+Pantone: Bright Blue 300 C
