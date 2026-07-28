@@ -14,7 +14,8 @@ export const state = {
   nodeDragState: null,
   connectorType: 'curved',
   autoLayout: true,
-  layoutMode: 'tree',
+  history: [],
+  future: [],
 };
 
 export function normalizeState(raw) {
@@ -30,36 +31,100 @@ export function normalizeState(raw) {
       area: node.area || '',
       email: node.email || '',
       phone: node.phone || '',
-      x: node.x || 0,
-      y: node.y || 0,
+      x: typeof node.x === 'number' ? node.x : 0,
+      y: typeof node.y === 'number' ? node.y : 0,
       rotation: typeof node.rotation === 'number' ? node.rotation : 0,
     })),
   };
 }
 
-export const getNode = (id) => state.nodes.find(node => node.id === id) || null;
+export const getNode = id => state.nodes.find(node => node.id === id) || null;
 export const getRoots = () => state.nodes.filter(node => !node.parentId || !getNode(node.parentId));
-export const getChildren = (parentId) => state.nodes.filter(node => node.parentId === parentId);
+export const getChildren = parentId => state.nodes.filter(node => node.parentId === parentId);
 
 export function getLevel(nodeId) {
-  let level = 0, current = getNode(nodeId), guard = new Set();
-  while (current?.parentId && !guard.has(current.id)) {
-    guard.add(current.id);
+  let level = 0;
+  let current = getNode(nodeId);
+  const visited = new Set();
+
+  while (current?.parentId && !visited.has(current.id)) {
+    visited.add(current.id);
     current = getNode(current.parentId);
     if (current) level++;
   }
+
   return level;
 }
 
 export const getMaxDepth = () => !state.nodes.length ? 0 : Math.max(...state.nodes.map(node => getLevel(node.id))) + 1;
 
+export function snapshotState() {
+  state.history.push(JSON.stringify({
+    company: state.company,
+    updatedAt: state.updatedAt,
+    nodes: state.nodes,
+    selectedNodeId: state.selectedNodeId,
+    connectorType: state.connectorType,
+    autoLayout: state.autoLayout,
+  }));
+
+  if (state.history.length > 80) {
+    state.history.shift();
+  }
+
+  state.future = [];
+}
+
+export function restoreFromSnapshot(serialized) {
+  const parsed = JSON.parse(serialized);
+  state.company = parsed.company || '';
+  state.updatedAt = parsed.updatedAt || null;
+  state.nodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
+  state.selectedNodeId = parsed.selectedNodeId || null;
+  state.connectorType = parsed.connectorType || 'curved';
+  state.autoLayout = typeof parsed.autoLayout === 'boolean' ? parsed.autoLayout : true;
+  renderAll();
+}
+
+export function undo() {
+  if (!state.history.length) return;
+  const current = JSON.stringify({
+    company: state.company,
+    updatedAt: state.updatedAt,
+    nodes: state.nodes,
+    selectedNodeId: state.selectedNodeId,
+    connectorType: state.connectorType,
+    autoLayout: state.autoLayout,
+  });
+  state.future.push(current);
+  restoreFromSnapshot(state.history.pop());
+}
+
+export function redo() {
+  if (!state.future.length) return;
+  const current = JSON.stringify({
+    company: state.company,
+    updatedAt: state.updatedAt,
+    nodes: state.nodes,
+    selectedNodeId: state.selectedNodeId,
+    connectorType: state.connectorType,
+    autoLayout: state.autoLayout,
+  });
+  state.history.push(current);
+  restoreFromSnapshot(state.future.pop());
+}
+
 export function addNode(parentId = '') {
-  let x = 200, y = 100;
+  snapshotState();
+
+  let x = 220;
+  let y = 120;
+
   if (parentId) {
     const parentNode = getNode(parentId);
     if (parentNode) {
       x = parentNode.x;
-      y = parentNode.y + NODE_DIMS.height + 80;
+      y = parentNode.y + NODE_DIMS.height + 86;
     }
   } else {
     const rect = dom.canvasViewport.getBoundingClientRect();
@@ -68,10 +133,16 @@ export function addNode(parentId = '') {
   }
 
   const node = {
-    id: crypto.randomUUID(), parentId,
-    name: parentId ? 'Nuevo colaborador' : 'Nueva dirección',
-    title: parentId ? 'Cargo' : 'Cargo principal',
-    area: '', email: '', phone: '', x, y, rotation: 0,
+    id: crypto.randomUUID(),
+    parentId,
+    name: parentId ? 'Nuevo colaborador' : 'Dirección principal',
+    title: parentId ? 'Cargo' : 'Nivel estratégico',
+    area: '',
+    email: '',
+    phone: '',
+    x,
+    y,
+    rotation: 0,
   };
 
   state.nodes.push(node);
@@ -83,7 +154,16 @@ export function addNode(parentId = '') {
 export function duplicateNode(id) {
   const source = getNode(id);
   if (!source) return;
-  const copy = { ...source, id: crypto.randomUUID(), name: `${source.name} copia`, x: source.x + 40, y: source.y + 40 };
+  snapshotState();
+
+  const copy = {
+    ...source,
+    id: crypto.randomUUID(),
+    name: `${source.name} copia`,
+    x: source.x + 40,
+    y: source.y + 40,
+  };
+
   state.nodes.push(copy);
   state.selectedNodeId = copy.id;
   if (state.autoLayout) applyLayout();
@@ -93,18 +173,43 @@ export function duplicateNode(id) {
 export function updateNode(id, field, value) {
   const node = getNode(id);
   if (!node) return;
-  node[field] = (field === 'rotation') ? Number(value) || 0 : value;
-  if (field === 'parentId' && state.autoLayout) applyLayout();
-  renderAll();
+
+  const normalizedValue = field === 'rotation' ? Number(value) || 0 : value;
+  if (node[field] === normalizedValue) return;
+
+  snapshotState();
+  node[field] = normalizedValue;
+
+  if (field === 'parentId' && state.autoLayout) {
+    applyLayout();
+  } else {
+    renderAll();
+  }
+}
+
+export function patchNodePosition(id, x, y) {
+  const node = getNode(id);
+  if (!node) return;
+  node.x = x;
+  node.y = y;
+}
+
+export function commitNodePositionChange() {
+  snapshotState();
 }
 
 export function removeNode(id) {
+  snapshotState();
+
   const idsToDelete = collectDescendants(id, new Set([id]));
   state.nodes = state.nodes.filter(node => !idsToDelete.has(node.id));
-  state.collapsed.delete(id);
+
+  idsToDelete.forEach(nodeId => state.collapsed.delete(nodeId));
+
   if (idsToDelete.has(state.selectedNodeId)) {
     state.selectedNodeId = getRoots()[0]?.id || state.nodes[0]?.id || null;
   }
+
   if (state.autoLayout) applyLayout();
   renderAll();
 }
@@ -118,7 +223,7 @@ export const collectDescendants = (id, bucket = new Set()) => {
   return bucket;
 };
 
-export const getAvailableParents = (nodeId) => {
+export const getAvailableParents = nodeId => {
   const descendants = collectDescendants(nodeId);
   return state.nodes.filter(node => node.id !== nodeId && !descendants.has(node.id));
 };
@@ -128,57 +233,63 @@ export function toggleCollapse(id) {
   renderCanvas();
 }
 
+export function importChart(raw) {
+  snapshotState();
+  const normalized = normalizeState(raw);
+  state.company = normalized.company;
+  state.updatedAt = normalized.updatedAt;
+  state.nodes = normalized.nodes;
+  state.selectedNodeId = normalized.nodes[0]?.id || null;
+  if (state.autoLayout) applyLayout();
+  renderAll();
+}
+
 export function applyLayout() {
-  if (!state.autoLayout || !state.nodes.length) return;
+  if (!state.nodes.length) {
+    renderCanvas();
+    return;
+  }
 
   const roots = getRoots();
-  let currentX = 50; // Posición X inicial para la primera raíz
+  let currentX = 60;
 
   roots.forEach(root => {
     const subtreeWidth = getSubtreeWidth(root.id);
-    // Centrar la raíz sobre su subárbol
-    root.x = currentX + (subtreeWidth / 2) - (NODE_DIMS.width / 2);
-    root.y = 50; // Posición Y fija para las raíces
-
-    layoutChildrenRecursive(root.id, root.x, root.y, currentX);
-
-    currentX += subtreeWidth + HORIZONTAL_SPACING; // Mover a la siguiente posición X para la próxima raíz
+    root.x = currentX + subtreeWidth / 2 - NODE_DIMS.width / 2;
+    root.y = 60;
+    layoutChildrenRecursive(root.id, root.y, currentX);
+    currentX += subtreeWidth + HORIZONTAL_SPACING;
   });
+
   renderCanvas();
 }
 
-// Helper para obtener el ancho total de un subárbol
 function getSubtreeWidth(nodeId) {
-  const children = getChildren(nodeId);
-  if (children.length === 0) {
-    return NODE_DIMS.width; // El ancho de un solo nodo
+  const children = getChildren(nodeId).filter(child => !state.collapsed.has(nodeId));
+  if (!children.length) return NODE_DIMS.width;
+
+  let total = 0;
+  for (const child of children) {
+    total += getSubtreeWidth(child.id);
   }
 
-  let totalChildrenWidth = 0;
-  for (const child of children) {
-    totalChildrenWidth += getSubtreeWidth(child.id);
-  }
-  // Añadir el espaciado entre los hijos
-  return totalChildrenWidth + (children.length - 1) * HORIZONTAL_SPACING;
+  return total + (children.length - 1) * HORIZONTAL_SPACING;
 }
 
-// Función recursiva para organizar los hijos
-function layoutChildrenRecursive(parentId, parentX, parentY, startXForChildren) {
+function layoutChildrenRecursive(parentId, parentY, startXForChildren) {
+  if (state.collapsed.has(parentId)) return;
+
   const children = getChildren(parentId);
   if (!children.length) return;
 
   let currentChildX = startXForChildren;
   const childrenY = parentY + VERTICAL_SPACING;
 
-  children.forEach((child, index) => {
+  children.forEach(child => {
     const childSubtreeWidth = getSubtreeWidth(child.id);
-    // Posicionar el nodo hijo
-    child.x = currentChildX + (childSubtreeWidth / 2) - (NODE_DIMS.width / 2);
+    child.x = currentChildX + childSubtreeWidth / 2 - NODE_DIMS.width / 2;
     child.y = childrenY;
-
-    // Llamada recursiva para los hijos de este nodo
-    layoutChildrenRecursive(child.id, child.x, child.y, currentChildX);
-
+    layoutChildrenRecursive(child.id, child.y, currentChildX);
     currentChildX += childSubtreeWidth + HORIZONTAL_SPACING;
   });
 }

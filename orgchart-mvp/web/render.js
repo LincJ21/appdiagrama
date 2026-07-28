@@ -1,9 +1,14 @@
 import { dom, getCanvasCreateRootBtn } from './dom.js';
-import { state, getNode, getRoots, getChildren, getLevel, getMaxDepth, getAvailableParents, collectDescendants } from './state.js';
+import { state, getNode, getRoots, getChildren, getLevel, getMaxDepth, getAvailableParents, addNode } from './state.js';
 import { NODE_DIMS } from './config.js';
-import { addNode } from './state.js';
 
-const escapeHtml = (value = '') => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+const escapeHtml = (value = '') => String(value)
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
+
 const getInitials = (name = '') => {
   const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
   if (!parts.length) return 'ND';
@@ -19,23 +24,42 @@ export function renderAll() {
 
 export function renderStats() {
   const updated = state.updatedAt ? new Date(state.updatedAt).toLocaleString('es-CO') : 'Sin guardar';
+
   dom.statsGrid.innerHTML = `
-    <div class="stat-card"><span class="stat-label">Nodos</span><div class="stat-value">${state.nodes.length}</div></div>
-    <div class="stat-card"><span class="stat-label">Raíces</span><div class="stat-value">${getRoots().length}</div></div>
-    <div class="stat-card"><span class="stat-label">Niveles</span><div class="stat-value">${getMaxDepth()}</div></div>
-    <div class="stat-card"><span class="stat-label">Actualización</span><div class="stat-value" style="font-size:14px;line-height:1.3">${escapeHtml(updated)}</div></div>
+    <div class="stat-card">
+      <span class="stat-label">Nodos</span>
+      <div class="stat-value">${state.nodes.length}</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Raíces</span>
+      <div class="stat-value">${getRoots().length}</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Niveles</span>
+      <div class="stat-value">${getMaxDepth()}</div>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Actualización</span>
+      <div class="stat-value" style="font-size:14px;line-height:1.35;">${escapeHtml(updated)}</div>
+    </div>
   `;
 }
 
 export function renderNodeList() {
   const filtered = state.nodes.filter(node => {
     if (!state.searchTerm) return true;
-    const target = `${node.name} ${node.title} ${node.area} ${node.email}`.toLowerCase();
+    const target = `${node.name} ${node.title} ${node.area} ${node.email} ${node.phone}`.toLowerCase();
     return target.includes(state.searchTerm);
   });
 
   if (!filtered.length) {
-    dom.nodeList.innerHTML = `<div class="empty-state"><strong>Sin coincidencias</strong><span>Ajusta la búsqueda.</span></div>`;
+    dom.nodeList.innerHTML = `
+      <div class="empty-card">
+        <div class="mini-chip">Sin coincidencias</div>
+        <h3>No se encontraron nodos</h3>
+        <p>Ajusta tu búsqueda o crea un nuevo bloque dentro de la estructura.</p>
+      </div>
+    `;
     return;
   }
 
@@ -57,19 +81,29 @@ export function renderNodeList() {
 
 export function renderInspector() {
   const node = getNode(state.selectedNodeId);
+
   if (!node) {
-    dom.inspectorContent.innerHTML = `<div class="empty-state"><strong>No hay nodo seleccionado</strong><span>Selecciona un bloque o crea uno nuevo.</span></div>`;
+    dom.inspectorContent.innerHTML = `
+      <div class="empty-card">
+        <div class="mini-chip">Inspector</div>
+        <h3>Selecciona un nodo</h3>
+        <p>Haz clic sobre un bloque en el lienzo o desde la lista lateral para editar su información.</p>
+      </div>
+    `;
     return;
   }
 
-  const parentOptions = getAvailableParents(node.id).map(option =>
-    `<option value="${option.id}" ${option.id === node.parentId ? 'selected' : ''}>${escapeHtml(option.name || option.title || option.id)}</option>`
-  ).join('');
+  const parentOptions = getAvailableParents(node.id)
+    .map(option => `<option value="${option.id}" ${option.id === node.parentId ? 'selected' : ''}>${escapeHtml(option.name || option.title || option.id)}</option>`)
+    .join('');
 
   dom.inspectorContent.innerHTML = `
     <div class="inspector-card">
       <div class="inspector-title">
-        <div><h3>${escapeHtml(node.name || 'Sin nombre')}</h3><p class="node-subline">${escapeHtml(node.title || 'Sin cargo')}</p></div>
+        <div>
+          <h3>${escapeHtml(node.name || 'Sin nombre')}</h3>
+          <p class="node-subline">${escapeHtml(node.title || 'Sin cargo')}</p>
+        </div>
         <span class="mini-chip">${getChildren(node.id).length} hijo(s)</span>
       </div>
       <div class="inspector-meta">
@@ -77,21 +111,53 @@ export function renderInspector() {
         <span class="mini-chip">${node.parentId ? 'Con dependencia' : 'Nodo raíz'}</span>
       </div>
     </div>
+
     <div class="inspector-card">
       <div class="inspector-grid">
-        <div class="full"><label>Nombre</label><input data-node-field="name" value="${escapeHtml(node.name)}" /></div>
-        <div class="full"><label>Cargo</label><input data-node-field="title" value="${escapeHtml(node.title)}" /></div>
-        <div><label>Área</label><input data-node-field="area" value="${escapeHtml(node.area)}" /></div>
-        <div><label>Jefe</label><select data-node-field="parentId"><option value="">Sin jefe</option>${parentOptions}</select></div>
-        <div><label>Rotación</label><input type="number" min="-45" max="45" step="1" data-node-field="rotation" value="${Number(node.rotation || 0)}" /></div>
-        <div><label>Email</label><input data-node-field="email" value="${escapeHtml(node.email)}" /></div>
-        <div><label>Teléfono</label><input data-node-field="phone" value="${escapeHtml(node.phone)}" /></div>
+        <div class="full">
+          <label class="form-label">Nombre</label>
+          <input data-node-field="name" value="${escapeHtml(node.name)}" />
+        </div>
+
+        <div class="full">
+          <label class="form-label">Cargo</label>
+          <input data-node-field="title" value="${escapeHtml(node.title)}" />
+        </div>
+
+        <div>
+          <label class="form-label">Área</label>
+          <input data-node-field="area" value="${escapeHtml(node.area)}" />
+        </div>
+
+        <div>
+          <label class="form-label">Jefe</label>
+          <select data-node-field="parentId">
+            <option value="">Sin jefe</option>
+            ${parentOptions}
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label">Correo</label>
+          <input data-node-field="email" value="${escapeHtml(node.email)}" />
+        </div>
+
+        <div>
+          <label class="form-label">Teléfono</label>
+          <input data-node-field="phone" value="${escapeHtml(node.phone)}" />
+        </div>
+
+        <div class="full">
+          <label class="form-label">Rotación</label>
+          <input type="number" min="-45" max="45" step="1" data-node-field="rotation" value="${Number(node.rotation || 0)}" />
+        </div>
       </div>
     </div>
+
     <div class="inspector-card">
       <div class="inspector-actions">
-        <button class="btn btn-ghost" data-inspector-action="add-child">Agregar hijo</button>
-        <button class="btn btn-ghost" data-inspector-action="duplicate">Duplicar</button>
+        <button class="btn btn-secondary" data-inspector-action="add-child">Agregar hijo</button>
+        <button class="btn btn-secondary" data-inspector-action="duplicate">Duplicar</button>
         <button class="btn btn-danger" data-inspector-action="remove">Eliminar</button>
       </div>
     </div>
@@ -101,12 +167,18 @@ export function renderInspector() {
 export function renderCanvas() {
   if (!state.nodes.length) {
     dom.chartStage.innerHTML = `
-      <div class="canvas-empty"><div class="canvas-empty-card">
-        <span class="mini-chip">Editor listo</span><h3>Crea tu primer nodo</h3>
-        <p>Empieza con una raíz para construir el organigrama.</p>
-        <div style="margin-top:18px"><button class="btn btn-primary" id="canvasCreateRoot">Crear raíz</button></div>
-      </div></div>`;
-    getCanvasCreateRootBtn().addEventListener('click', () => addNode(''));
+      <div class="canvas-empty">
+        <div class="canvas-empty-card">
+          <div class="mini-chip">Editor listo</div>
+          <h3>Crea tu primer nodo principal</h3>
+          <p>Empieza con la dirección o presidencia de la organización y construye el organigrama desde ahí.</p>
+          <div style="margin-top:18px;">
+            <button class="btn btn-primary" id="canvasCreateRoot">Crear raíz</button>
+          </div>
+        </div>
+      </div>
+    `;
+    getCanvasCreateRootBtn()?.addEventListener('click', () => addNode(''));
     return;
   }
 
@@ -114,16 +186,18 @@ export function renderCanvas() {
     <svg class="connector-layer" id="connectorLayer"></svg>
     ${state.nodes.map(renderNode).join('')}
   `;
+
   drawConnectors();
 }
 
 function renderNode(node) {
   const isRoot = !node.parentId;
+
   return `
-    <div 
-      class="chart-node ${state.selectedNodeId === node.id ? 'selected' : ''} ${isRoot ? 'root-node' : ''}" 
-      data-id="${node.id}" 
-      style="left: ${node.x}px; top: ${node.y}px; transform: rotate(${(node.rotation || 0)}deg);"
+    <div
+      class="chart-node ${state.selectedNodeId === node.id ? 'selected' : ''} ${isRoot ? 'root-node' : ''}"
+      data-id="${node.id}"
+      style="left:${node.x}px;top:${node.y}px;transform:rotate(${node.rotation || 0}deg);"
     >
       <div class="node-top">
         <div class="node-avatar">${getInitials(node.name)}</div>
@@ -134,12 +208,18 @@ function renderNode(node) {
           </div>
           <div class="node-title">${escapeHtml(node.title || 'Sin cargo')}</div>
           <div class="node-subline">${escapeHtml(node.area || 'Área sin definir')}</div>
-          <div class="node-meta">${node.email ? `<span>${escapeHtml(node.email)}</span>` : ''}${node.phone ? `<span>${escapeHtml(node.phone)}</span>` : ''}</div>
+          <div class="node-meta">
+            ${node.email ? `<span>${escapeHtml(node.email)}</span>` : ''}
+            ${node.phone ? `<span>${escapeHtml(node.phone)}</span>` : ''}
+          </div>
         </div>
       </div>
+
       <div class="node-quickbar">
-        <button class="node-quick" data-node-action="add-child" data-id="${node.id}" title="Agregar hijo">＋</button>
-        ${getChildren(node.id).length > 0 ? `<button class="node-quick" data-node-action="toggle" data-id="${node.id}" title="Expandir/Contraer">${state.collapsed.has(node.id) ? '▸' : '▾'}</button>` : ''}
+        <button class="node-quick" data-node-action="add-child" data-id="${node.id}" title="Agregar hijo">+</button>
+        <button class="node-quick" data-node-action="toggle" data-id="${node.id}" title="Expandir o contraer">
+          ${state.collapsed.has(node.id) ? '▸' : '▾'}
+        </button>
       </div>
     </div>
   `;
@@ -165,36 +245,35 @@ function getPathD(start, end) {
   if (state.connectorType === 'straight') {
     return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
   }
-  // Curved
+
   const dx = end.x - start.x;
   const dy = end.y - start.y;
-  let path;
+
   if (start.type === 'bottom' && end.type === 'top') {
     const c1x = start.x;
     const c1y = start.y + dy * 0.6;
     const c2x = end.x;
     const c2y = end.y - dy * 0.6;
-    path = `M ${start.x} ${start.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${end.x} ${end.y}`;
-  } else if (start.type === 'right' && end.type === 'left') {
+    return `M ${start.x} ${start.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${end.x} ${end.y}`;
+  }
+
+  if (start.type === 'right' && end.type === 'left') {
     const c1x = start.x + dx * 0.6;
     const c1y = start.y;
     const c2x = end.x - dx * 0.6;
     const c2y = end.y;
-    path = `M ${start.x} ${start.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${end.x} ${end.y}`;
-  } else { // Fallback for other connections
-    const c1x = start.x;
-    const c1y = start.y + dy / 2;
-    const c2x = end.x;
-    const c2y = end.y - dy / 2;
-    path = `M ${start.x} ${start.y} Q ${start.x} ${start.y + dy/2}, ${start.x + dx/2} ${start.y + dy/2} T ${end.x} ${end.y}`;
+    return `M ${start.x} ${start.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${end.x} ${end.y}`;
   }
-  return path;
+
+  const midX = start.x + dx / 2;
+  return `M ${start.x} ${start.y} C ${midX} ${start.y}, ${midX} ${end.y}, ${end.x} ${end.y}`;
 }
 
 function findOptimalConnectionPoints(parentNode, childNode) {
-  const getAnchors = (node) => {
+  const getAnchors = node => {
     const hw = NODE_DIMS.width / 2;
     const hh = NODE_DIMS.height / 2;
+
     return [
       { x: node.x + hw, y: node.y, type: 'top' },
       { x: node.x + NODE_DIMS.width, y: node.y + hh, type: 'right' },
@@ -205,17 +284,19 @@ function findOptimalConnectionPoints(parentNode, childNode) {
 
   const parentAnchors = getAnchors(parentNode);
   const childAnchors = getAnchors(childNode);
+
   let minDistance = Infinity;
   let bestPair = { start: parentAnchors[2], end: childAnchors[0] };
 
   for (const pA of parentAnchors) {
-    for (const pC of childAnchors) {
-      const dist = Math.sqrt(Math.pow(pC.x - pA.x, 2) + Math.pow(pC.y - pA.y, 2));
+    for (const cA of childAnchors) {
+      const dist = Math.hypot(cA.x - pA.x, cA.y - pA.y);
       if (dist < minDistance) {
         minDistance = dist;
-        bestPair = { start: pA, end: pC };
+        bestPair = { start: pA, end: cA };
       }
     }
   }
+
   return bestPair;
 }
