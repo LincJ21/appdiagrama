@@ -1,303 +1,533 @@
-import { dom, getCanvasCreateRootBtn } from './dom.js';
-import { state, getNode, getRoots, getChildren, getLevel, getMaxDepth, getAvailableParents, addNode } from './state.js';
-import { NODE_DIMS } from './config.js';
+import { dom } from './dom.js';
+import state from './state.js';
 
-const escapeHtml = (value = '') => String(value)
-  .replaceAll('&', '&amp;')
-  .replaceAll('<', '&lt;')
-  .replaceAll('>', '&gt;')
-  .replaceAll('"', '&quot;')
-  .replaceAll("'", '&#39;');
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const SIDES = ['top', 'right', 'bottom', 'left'];
 
-const getInitials = (name = '') => {
-  const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
-  if (!parts.length) return 'ND';
-  return parts.map(part => part[0].toUpperCase()).join('');
-};
+function esc(value = '') {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
 
 export function renderAll() {
-  renderStats();
   renderNodeList();
   renderInspector();
   renderCanvas();
 }
 
-export function renderStats() {
-  const updated = state.updatedAt ? new Date(state.updatedAt).toLocaleString('es-CO') : 'Sin guardar';
-
-  dom.statsGrid.innerHTML = `
-    <div class="stat-card"><span class="stat-label">Nodos</span><div class="stat-value">${state.nodes.length}</div></div>
-    <div class="stat-card"><span class="stat-label">Conexiones</span><div class="stat-value">${state.links.length}</div></div>
-    <div class="stat-card"><span class="stat-label">Niveles</span><div class="stat-value">${getMaxDepth()}</div></div>
-    <div class="stat-card"><span class="stat-label">Actualización</span><div class="stat-value" style="font-size:14px;line-height:1.35;">${escapeHtml(updated)}</div></div>
-  `;
-}
-
+/**
+ * Lista de nodos del panel izquierdo.
+ * Compatible con el handler:
+ *   dom.nodeList.addEventListener('click', ... [data-select-node] ...)
+ */
 export function renderNodeList() {
-  const filtered = state.nodes.filter(node => {
-    if (!state.searchTerm) return true;
-    const target = `${node.name} ${node.title} ${node.area} ${node.email} ${node.phone}`.toLowerCase();
-    return target.includes(state.searchTerm);
+  const term = state.searchTerm;
+  const nodes = state.nodes.filter(node => {
+    if (!term) return true;
+    return [node.name, node.title, node.area].some(v =>
+      String(v || '').toLowerCase().includes(term)
+    );
   });
 
-  if (!filtered.length) {
-    dom.nodeList.innerHTML = `
-      <div class="empty-card">
-        <div class="mini-chip">Sin coincidencias</div>
-        <h3>No se encontraron nodos</h3>
-        <p>Ajusta tu búsqueda o crea un nuevo bloque dentro de la estructura.</p>
-      </div>
-    `;
-    return;
-  }
-
-  dom.nodeList.innerHTML = filtered.map(node => `
-    <div class="node-list-item ${node.id === state.selectedNodeId ? 'active' : ''}">
-      <button class="node-list-button" data-select-node="${node.id}">
-        <div class="node-list-top">
-          <strong>${escapeHtml(node.name || 'Sin nombre')}</strong>
-          <span class="role-badge">${!node.parentId ? 'Raíz' : 'Nodo'}</span>
-        </div>
-        <div class="node-list-bottom">
-          <span>${escapeHtml(node.title || 'Sin cargo')}</span>
-          <span class="level-badge">Nivel ${getLevel(node.id) + 1}</span>
-        </div>
+  dom.nodeList.innerHTML = nodes
+    .map(
+      node => `
+      <button
+        class="node-list-item ${node.id === state.selectedNodeId ? 'active' : ''}"
+        type="button"
+        data-select-node="${esc(node.id)}"
+      >
+        <strong>${esc(node.name || 'Sin nombre')}</strong>
+        <span>${esc(node.title || 'Sin cargo')}</span>
+        <small>${esc(node.area || '')}</small>
       </button>
-    </div>
-  `).join('');
-}
-
-export function renderInspector() {
-  const node = getNode(state.selectedNodeId);
-
-  if (!node) {
-    dom.inspectorContent.innerHTML = `
-      <div class="empty-card">
-        <div class="mini-chip">Inspector</div>
-        <h3>Selecciona un nodo</h3>
-        <p>Haz clic sobre un bloque en el lienzo o desde la lista lateral para editar su información.</p>
-      </div>
-    `;
-    return;
-  }
-
-  const parentOptions = getAvailableParents(node.id)
-    .map(option => `<option value="${option.id}" ${option.id === node.parentId ? 'selected' : ''}>${escapeHtml(option.name || option.title || option.id)}</option>`)
+    `
+    )
     .join('');
 
-  const nodeLinks = state.links.filter(link => link.fromId === node.id || link.toId === node.id);
+  if (dom.statsGrid) {
+    const totalNodes = state.nodes.length;
+    const totalLinks = state.links.length;
 
-  dom.inspectorContent.innerHTML = `
-    <div class="inspector-card">
-      <div class="inspector-title">
-        <div>
-          <h3>${escapeHtml(node.name || 'Sin nombre')}</h3>
-          <p class="node-subline">${escapeHtml(node.title || 'Sin cargo')}</p>
-        </div>
-        <span class="mini-chip">${getChildren(node.id).length} hijo(s)</span>
+    dom.statsGrid.innerHTML = `
+      <div class="stat-card">
+        <span>Nodos</span>
+        <strong>${totalNodes}</strong>
       </div>
-      <div class="inspector-meta">
-        <span class="mini-chip">Nivel ${getLevel(node.id) + 1}</span>
-        <span class="mini-chip">${node.parentId ? 'Con dependencia' : 'Nodo raíz'}</span>
-        <span class="mini-chip">${Math.round(node.width)}×${Math.round(node.height)} px</span>
-      </div>
-    </div>
-
-    <div class="inspector-card">
-      <div class="inspector-grid">
-        <div class="full"><label class="form-label">Nombre</label><input data-node-field="name" value="${escapeHtml(node.name)}" /></div>
-        <div class="full"><label class="form-label">Cargo</label><input data-node-field="title" value="${escapeHtml(node.title)}" /></div>
-        <div><label class="form-label">Área</label><input data-node-field="area" value="${escapeHtml(node.area)}" /></div>
-        <div><label class="form-label">Jefe</label>
-          <select data-node-field="parentId"><option value="">Sin jefe</option>${parentOptions}</select>
-        </div>
-        <div><label class="form-label">Correo</label><input data-node-field="email" value="${escapeHtml(node.email)}" /></div>
-        <div><label class="form-label">Teléfono</label><input data-node-field="phone" value="${escapeHtml(node.phone)}" /></div>
-        <div><label class="form-label">Ancho (px)</label><input type="number" min="220" max="560" step="10" data-node-field="width" value="${Math.round(node.width)}" /></div>
-        <div><label class="form-label">Alto (px)</label><input type="number" min="120" max="420" step="10" data-node-field="height" value="${Math.round(node.height)}" /></div>
-        <div class="full"><label class="form-label">Rotación</label><input type="number" min="-45" max="45" step="1" data-node-field="rotation" value="${Number(node.rotation || 0)}" /></div>
-      </div>
-    </div>
-
-    ${nodeLinks.length ? `
-    <div class="inspector-card">
-      <div class="panel-heading"><h2 style="font-size:14px;">Conexiones manuales</h2></div>
-      <div class="link-list">
-        ${nodeLinks.map(link => {
-          const other = getNode(link.fromId === node.id ? link.toId : link.fromId);
-          return `
-            <div class="link-item">
-              <span>↔ ${escapeHtml(other?.name || 'Nodo eliminado')}</span>
-              <button class="btn btn-danger btn-small" data-remove-link="${link.id}">Quitar</button>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </div>` : ''}
-
-    <div class="inspector-card">
-      <div class="inspector-actions">
-        <button class="btn btn-secondary" data-inspector-action="add-child">Agregar hijo</button>
-        <button class="btn btn-secondary" data-inspector-action="duplicate">Duplicar</button>
-        <button class="btn btn-danger" data-inspector-action="remove">Eliminar</button>
-      </div>
-    </div>
-  `;
-}
-
-export function renderCanvas() {
-  if (!state.nodes.length) {
-    dom.chartStage.innerHTML = `
-      <div class="canvas-empty">
-        <div class="canvas-empty-card">
-          <div class="mini-chip">Editor listo</div>
-          <h3>Crea tu primer nodo principal</h3>
-          <p>Empieza con la dirección o presidencia de la organización y construye el organigrama desde ahí.</p>
-          <div style="margin-top:18px;"><button class="btn btn-primary" id="canvasCreateRoot">Crear raíz</button></div>
-        </div>
+      <div class="stat-card">
+        <span>Conexiones</span>
+        <strong>${totalLinks}</strong>
       </div>
     `;
-    getCanvasCreateRootBtn()?.addEventListener('click', () => addNode(''));
+  }
+}
+
+/**
+ * Panel de inspector (lado derecho).
+ * Compatible con handlers de events.js:
+ *  - click: [data-select-link], [data-link-action], [data-inspector-action]
+ *  - input: data-link-field, data-node-field
+ */
+export function renderInspector() {
+  const container = dom.inspectorContent;
+
+  if (!state.selectedNodeId && !state.selectedLinkId) {
+    container.innerHTML = `
+      <p class="empty">
+        Selecciona un nodo o un conector para editarlo.
+      </p>
+    `;
     return;
   }
 
-  dom.chartStage.innerHTML = `
-    <svg class="connector-layer" id="connectorLayer"></svg>
-    ${state.nodes.map(renderNode).join('')}
-  `;
+  // Inspector de conector
+  if (state.selectedLinkId) {
+    const link = state.links.find(item => item.id === state.selectedLinkId);
+    if (!link) {
+      container.innerHTML = `<p class="empty">Conector no encontrado.</p>`;
+      return;
+    }
 
+    container.innerHTML = `
+      <section class="inspector-fields">
+        <h3>Conector seleccionado</h3>
+
+        <p>
+          <strong>Salida:</strong> ${esc(link.fromSide || 'auto')} ·
+          <strong>Entrada:</strong> ${esc(link.toSide || 'auto')}
+        </p>
+
+        <p class="empty">
+          Arrastra los puntos verdes de los extremos o los puntos azules
+          del centro de cada tramo para editar la ruta.
+        </p>
+
+        <label>
+          <span>Grosor (px)</span>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            value="${link.thickness ?? 2}"
+            data-link-field="thickness"
+          >
+        </label>
+
+        <label>
+          <span>Color</span>
+          <input
+            type="color"
+            value="${esc(link.color || '#111827')}"
+            data-link-field="color"
+          >
+        </label>
+
+        <div class="inspector-actions">
+          <button
+            type="button"
+            data-link-action="reset-points"
+          >
+            Restablecer ruta
+          </button>
+          <button
+            type="button"
+            class="danger"
+            data-link-action="remove"
+          >
+            Eliminar conector
+          </button>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  // Inspector de nodo
+  const node = state.nodes.find(n => n.id === state.selectedNodeId);
+  if (!node) {
+    container.innerHTML = `<p class="empty">Nodo no encontrado.</p>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <section class="inspector-fields">
+      <h3>Nodo seleccionado</h3>
+
+      <label>
+        <span>Nombre</span>
+        <input
+          type="text"
+          value="${esc(node.name || '')}"
+          data-node-field="name"
+        >
+      </label>
+
+      <label>
+        <span>Cargo</span>
+        <input
+          type="text"
+          value="${esc(node.title || '')}"
+          data-node-field="title"
+        >
+      </label>
+
+      <label>
+        <span>Área</span>
+        <input
+          type="text"
+          value="${esc(node.area || '')}"
+          data-node-field="area"
+        >
+      </label>
+
+      <label>
+        <span>Email</span>
+        <input
+          type="email"
+          value="${esc(node.email || '')}"
+          data-node-field="email"
+        >
+      </label>
+
+      <label>
+        <span>Teléfono</span>
+        <input
+          type="text"
+          value="${esc(node.phone || '')}"
+          data-node-field="phone"
+        >
+      </label>
+
+      <label>
+        <span>Ancho</span>
+        <input
+          type="number"
+          min="120"
+          step="10"
+          value="${node.width}"
+          data-node-field="width"
+        >
+      </label>
+
+      <label>
+        <span>Alto</span>
+        <input
+          type="number"
+          min="80"
+          step="10"
+          value="${node.height}"
+          data-node-field="height"
+        >
+      </label>
+
+      <div class="inspector-actions">
+        <button
+          type="button"
+          data-inspector-action="add-child"
+        >
+          Agregar hijo
+        </button>
+        <button
+          type="button"
+          data-inspector-action="duplicate"
+        >
+          Duplicar
+        </button>
+        <button
+          type="button"
+          class="danger"
+          data-inspector-action="remove"
+        >
+          Eliminar nodo
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+/**
+ * Canvas central: nodos + conectores.
+ * Compatible con events.js:
+ *  - .chart-node, .node-port, [data-resize-handle], [data-node-action]
+ */
+export function renderCanvas() {
+  const stage = dom.chartStage;
+  if (!stage) return;
+
+  // Nodos
+  stage.innerHTML = '';
+
+  for (const node of state.nodes) {
+    const el = document.createElement('div');
+    el.className = 'chart-node';
+    el.dataset.id = node.id;
+    el.style.left = `${node.x}px`;
+    el.style.top = `${node.y}px`;
+    el.style.width = `${node.width}px`;
+    el.style.minHeight = `${node.height}px`;
+
+    if (node.id === state.selectedNodeId) {
+      el.classList.add('selected');
+    }
+
+    el.innerHTML = `
+      <div class="node-head">
+        <div>
+          <h3>${esc(node.name || 'Sin nombre')}</h3>
+          <p>${esc(node.title || 'Sin cargo')}</p>
+          <small>${esc(node.area || '')}</small>
+        </div>
+        <div class="node-actions">
+          <button
+            type="button"
+            data-node-action="add-child"
+            data-id="${esc(node.id)}"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            data-node-action="toggle"
+            data-id="${esc(node.id)}"
+          >
+            ${node.collapsed ? '↕' : '↧'}
+          </button>
+        </div>
+      </div>
+
+      <div class="resize-handle" data-resize-handle="bottom-right"></div>
+
+      <!-- Puertos en cada lado -->
+      <div
+        class="node-port node-port-top"
+        data-node-id="${esc(node.id)}"
+        data-port="top"
+      ></div>
+      <div
+        class="node-port node-port-bottom"
+        data-node-id="${esc(node.id)}"
+        data-port="bottom"
+      ></div>
+      <div
+        class="node-port node-port-left"
+        data-node-id="${esc(node.id)}"
+        data-port="left"
+      ></div>
+      <div
+        class="node-port node-port-right"
+        data-node-id="${esc(node.id)}"
+        data-port="right"
+      ></div>
+    `;
+
+    stage.appendChild(el);
+  }
+
+  // Conectores
   drawConnectors();
 }
 
-function renderNode(node) {
-  const isRoot = !node.parentId;
-  const isConnectSource = state.connectMode && state.connectSourceId === node.id;
-
-  return `
-    <div
-      class="chart-node ${state.selectedNodeId === node.id ? 'selected' : ''} ${isRoot ? 'root-node' : ''} ${state.connectMode ? 'connect-mode' : ''} ${isConnectSource ? 'connect-source' : ''}"
-      data-id="${node.id}"
-      style="left:${node.x}px;top:${node.y}px;width:${node.width}px;min-height:${node.height}px;transform:rotate(${node.rotation || 0}deg);"
-    >
-      <div class="node-top">
-        <div class="node-avatar">${getInitials(node.name)}</div>
-        <div class="node-content">
-          <div class="node-label-row">
-            <div class="node-name">${escapeHtml(node.name || 'Sin nombre')}</div>
-            <span class="node-type">${isRoot ? 'principal' : `nivel ${getLevel(node.id) + 1}`}</span>
-          </div>
-          <div class="node-title">${escapeHtml(node.title || 'Sin cargo')}</div>
-          <div class="node-subline">${escapeHtml(node.area || 'Área sin definir')}</div>
-          <div class="node-meta">
-            ${node.email ? `<span>${escapeHtml(node.email)}</span>` : ''}
-            ${node.phone ? `<span>${escapeHtml(node.phone)}</span>` : ''}
-          </div>
-        </div>
-      </div>
-
-      <div class="node-quickbar">
-        <button class="node-quick" data-node-action="add-child" data-id="${node.id}" title="Agregar hijo">+</button>
-        <button class="node-quick" data-node-action="toggle" data-id="${node.id}" title="Expandir o contraer">
-          ${state.collapsed.has(node.id) ? '▸' : '▾'}
-        </button>
-      </div>
-
-      <div class="resize-handle" data-resize-handle="${node.id}" title="Cambiar tamaño"></div>
-    </div>
-  `;
+/**
+ * Transformación de zoom/pan del stage.
+ * events.js usa applyStageTransform() desde applyView().
+ */
+export function applyStageTransform() {
+  const { x, y, scale } = state.view;
+  dom.chartStage.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+  dom.chartStage.style.transformOrigin = '0 0';
 }
 
-export function drawConnectors() {
-  const svg = document.getElementById('connectorLayer');
-  if (!svg) return;
+/**
+ * Punto de puerto para un nodo y lado.
+ */
+export function portPoint(node, side) {
+  const x = node.x;
+  const y = node.y;
+  const w = node.width;
+  const h = node.height;
 
-  const treeLines = state.nodes.map(node => {
-    if (!node.parentId) return '';
-    const parent = getNode(node.parentId);
-    if (!parent || state.collapsed.has(parent.id)) return '';
-
-    const { start, end } = findOptimalConnectionPoints(parent, node);
-    const pathD = getPathD(start, end, state.connectorType);
-    return `<path class="tree-link" d="${pathD}" />`;
-  }).join('');
-
-  const manualLines = state.links.map(link => {
-    const from = getNode(link.fromId);
-    const to = getNode(link.toId);
-    if (!from || !to) return '';
-
-    const { start, end } = findOptimalConnectionPoints(from, to);
-    const pathD = getPathD(start, end, link.style === 'cable' ? 'curved' : 'straight');
-    const dist = Math.hypot(end.x - start.x, end.y - start.y);
-
-    return `<path
-      class="manual-link"
-      data-link-id="${link.id}"
-      d="${pathD}"
-      stroke="${link.color}"
-      stroke-width="${link.thickness}"
-      data-length="${dist.toFixed(1)}"
-    />`;
-  }).join('');
-
-  svg.innerHTML = treeLines + manualLines;
+  switch (side) {
+    case 'top':
+      return { x: x + w / 2, y: y };
+    case 'bottom':
+      return { x: x + w / 2, y: y + h };
+    case 'left':
+      return { x: x, y: y + h / 2 };
+    case 'right':
+    default:
+      return { x: x + w, y: y + h / 2 };
+  }
 }
 
-function getPathD(start, end, mode) {
-  if (mode === 'straight') {
-    return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
-  }
+/**
+ * Encuentra el lado cuyo puerto está más cerca de un punto.
+ */
+export function nearestPortSide(node, point) {
+  let bestSide = 'right';
+  let bestDist = Infinity;
 
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-
-  if (start.type === 'bottom' && end.type === 'top') {
-    const c1y = start.y + dy * 0.6;
-    const c2y = end.y - dy * 0.6;
-    return `M ${start.x} ${start.y} C ${start.x} ${c1y}, ${end.x} ${c2y}, ${end.x} ${end.y}`;
-  }
-
-  if (start.type === 'right' && end.type === 'left') {
-    const c1x = start.x + dx * 0.6;
-    const c2x = end.x - dx * 0.6;
-    return `M ${start.x} ${start.y} C ${c1x} ${start.y}, ${c2x} ${end.y}, ${end.x} ${end.y}`;
-  }
-
-  const midX = start.x + dx / 2;
-  const midY = start.y + dy / 2;
-  return `M ${start.x} ${start.y} Q ${midX} ${start.y}, ${midX} ${midY} T ${end.x} ${end.y}`;
-}
-
-function findOptimalConnectionPoints(fromNode, toNode) {
-  const getAnchors = node => {
-    const w = node.width || NODE_DIMS.width;
-    const h = node.height || NODE_DIMS.height;
-    const hw = w / 2;
-    const hh = h / 2;
-
-    return [
-      { x: node.x + hw, y: node.y, type: 'top' },
-      { x: node.x + w, y: node.y + hh, type: 'right' },
-      { x: node.x + hw, y: node.y + h, type: 'bottom' },
-      { x: node.x, y: node.y + hh, type: 'left' }
-    ];
-  };
-
-  const fromAnchors = getAnchors(fromNode);
-  const toAnchors = getAnchors(toNode);
-
-  let minDistance = Infinity;
-  let bestPair = { start: fromAnchors[2], end: toAnchors[0] };
-
-  for (const a of fromAnchors) {
-    for (const b of toAnchors) {
-      const dist = Math.hypot(b.x - a.x, b.y - a.y);
-      if (dist < minDistance) {
-        minDistance = dist;
-        bestPair = { start: a, end: b };
-      }
+  for (const side of SIDES) {
+    const p = portPoint(node, side);
+    const dx = p.x - point.x;
+    const dy = p.y - point.y;
+    const dist = dx * dx + dy * dy;
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestSide = side;
     }
   }
 
-  return bestPair;
+  return bestSide;
+}
+
+/**
+ * Construye una ruta ortogonal editable (L/Z) entre dos nodos.
+ * Se usa cuando:
+ *  - se crea un nuevo link,
+ *  - se mueve un extremo con edgeDragState.
+ */
+export function ensureEditableLink(link, fromNode, toNode) {
+  const fromSide = link.fromSide || 'right';
+  const toSide = link.toSide || 'left';
+
+  const start = portPoint(fromNode, fromSide);
+  const end = portPoint(toNode, toSide);
+
+  const points = [];
+
+  // inicio
+  points.push({ x: start.x, y: start.y });
+
+  // punto medio horizontal para el primer tramo
+  const midX = (start.x + end.x) / 2;
+
+  // tramo 1: horizontal
+  points.push({ x: midX, y: start.y });
+
+  // tramo 2: vertical
+  points.push({ x: midX, y: end.y });
+
+  // tramo 3: horizontal hasta el final
+  points.push({ x: end.x, y: end.y });
+
+  link.points = points;
+}
+
+/**
+ * Dibuja conectores y handles:
+ *  - extremos: edge-handle (verde)
+ *  - tramos: segment-handle (azul), centrados en cada segmento recto.
+ *
+ * events.js:
+ *  - mueve extremos con edgeDragState + nearestPortSide + ensureEditableLink
+ *  - mueve tramos con segmentDragState actualizando link.points[i] e i+1
+ */
+export function drawConnectors() {
+  let svg = dom.chartStage.querySelector('#connectorsLayer');
+  if (!svg) {
+    svg = document.createElementNS(SVG_NS, 'svg');
+    svg.id = 'connectorsLayer';
+    svg.setAttribute('class', 'connectors-layer');
+    svg.setAttribute('width', '4000');
+    svg.setAttribute('height', '2400');
+    dom.chartStage.appendChild(svg);
+  }
+
+  svg.innerHTML = '';
+
+  for (const link of state.links) {
+    if (!Array.isArray(link.points) || link.points.length < 2) continue;
+
+    const group = document.createElementNS(SVG_NS, 'g');
+    group.setAttribute('data-link-id', link.id);
+
+    // Path principal
+    const path = document.createElementNS(SVG_NS, 'path');
+    const d = link.points
+      .map((p, index) =>
+        index === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`
+      )
+      .join(' ');
+    path.setAttribute('d', d);
+    path.setAttribute('stroke', link.color || '#111827');
+    path.setAttribute('stroke-width', link.thickness || 2);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('class', 'manual-link manual-link-hit');
+    path.setAttribute('data-link-id', link.id);
+
+    group.appendChild(path);
+
+    // Extremos (from / to)
+    const start = link.points[0];
+    const end = link.points[link.points.length - 1];
+
+    const startRing = document.createElementNS(SVG_NS, 'circle');
+    startRing.setAttribute('cx', start.x);
+    startRing.setAttribute('cy', start.y);
+    startRing.setAttribute('r', 14);
+    startRing.setAttribute('class', 'edge-handle-ring');
+    group.appendChild(startRing);
+
+    const startHandle = document.createElementNS(SVG_NS, 'circle');
+    startHandle.setAttribute('cx', start.x);
+    startHandle.setAttribute('cy', start.y);
+    startHandle.setAttribute('r', 7);
+    startHandle.setAttribute('class', 'edge-handle');
+    startHandle.dataset.linkId = link.id;
+    startHandle.dataset.edge = 'from';
+    group.appendChild(startHandle);
+
+    const endRing = document.createElementNS(SVG_NS, 'circle');
+    endRing.setAttribute('cx', end.x);
+    endRing.setAttribute('cy', end.y);
+    endRing.setAttribute('r', 14);
+    endRing.setAttribute('class', 'edge-handle-ring');
+    group.appendChild(endRing);
+
+    const endHandle = document.createElementNS(SVG_NS, 'circle');
+    endHandle.setAttribute('cx', end.x);
+    endHandle.setAttribute('cy', end.y);
+    endHandle.setAttribute('r', 7);
+    endHandle.setAttribute('class', 'edge-handle');
+    endHandle.dataset.linkId = link.id;
+    endHandle.dataset.edge = 'to';
+    group.appendChild(endHandle);
+
+    // Handles de tramo centrados en cada segmento recto
+    for (let i = 0; i < link.points.length - 1; i++) {
+      const a = link.points[i];
+      const b = link.points[i + 1];
+
+      const isHorizontal = Math.abs(a.y - b.y) < 0.5;
+      const isVertical = Math.abs(a.x - b.x) < 0.5;
+      if (!isHorizontal && !isVertical) continue;
+
+      const midX = (a.x + b.x) / 2;
+      const midY = (a.y + b.y) / 2;
+
+      const ring = document.createElementNS(SVG_NS, 'circle');
+      ring.setAttribute('cx', midX);
+      ring.setAttribute('cy', midY);
+      ring.setAttribute('r', 10);
+      ring.setAttribute('class', 'segment-ring');
+      group.appendChild(ring);
+
+      const handle = document.createElementNS(SVG_NS, 'circle');
+      handle.setAttribute('cx', midX);
+      handle.setAttribute('cy', midY);
+      handle.setAttribute('r', 6);
+      handle.setAttribute(
+        'class',
+        `segment-handle ${isHorizontal ? 'segment-h' : 'segment-v'}`
+      );
+      handle.dataset.linkId = link.id;
+      handle.dataset.segIndex = String(i);
+      group.appendChild(handle);
+    }
+
+    svg.appendChild(group);
+  }
 }

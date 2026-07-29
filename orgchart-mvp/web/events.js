@@ -1,6 +1,5 @@
 import { dom } from './dom.js';
-import {
-  state,
+import state, {
   addNode,
   updateNode,
   removeNode,
@@ -15,19 +14,45 @@ import {
   importChart,
   addLink,
   removeLink,
+  selectLink,
 } from './state.js';
-import { renderAll, renderNodeList, renderInspector, renderCanvas, drawConnectors } from './render.js';
-import { saveAll, regenerateHTML, exportPDF, exportPNG, downloadJSON } from './api.js';
-import { ZOOM_IN_FACTOR, WHEEL_ZOOM_FACTOR, MIN_SCALE, MAX_SCALE, NODE_DIMS, NODE_MIN_WIDTH, NODE_MIN_HEIGHT } from './config.js';
+
+import {
+  renderAll,
+  renderNodeList,
+  renderCanvas,
+  drawConnectors,
+  applyStageTransform,
+  ensureEditableLink,
+  nearestPortSide,
+  portPoint,
+} from './render.js';
+
+import {
+  saveAll,
+  regenerateHTML,
+  exportPDF,
+  exportPNG,
+  downloadJSON,
+} from './api.js';
+
+import {
+  ZOOM_IN_FACTOR,
+  WHEEL_ZOOM_FACTOR,
+  MIN_SCALE,
+  MAX_SCALE,
+  NODE_DIMS,
+  NODE_MIN_WIDTH,
+  NODE_MIN_HEIGHT,
+} from './config.js';
 
 let statusTimeout = null;
 
 export function setStatus(message, type = 'info', duration = 3200) {
   dom.statusBox.textContent = message;
-  dom.statusBox.className = 'status';
-  dom.statusBox.classList.add(type);
-
+  dom.statusBox.className = `status ${type}`;
   clearTimeout(statusTimeout);
+
   if (duration > 0) {
     statusTimeout = setTimeout(() => {
       dom.statusBox.textContent = '';
@@ -37,7 +62,9 @@ export function setStatus(message, type = 'info', duration = 3200) {
 }
 
 export function setupEventListeners() {
-  dom.companyInput.addEventListener('input', e => { state.company = e.target.value; });
+  dom.companyInput.addEventListener('input', e => {
+    state.company = e.target.value;
+  });
 
   dom.searchInput.addEventListener('input', e => {
     state.searchTerm = e.target.value.trim().toLowerCase();
@@ -45,7 +72,11 @@ export function setupEventListeners() {
   });
 
   dom.saveBtn.addEventListener('click', saveAll);
-  dom.addRootBtn.addEventListener('click', () => addNode(''));
+  dom.addRootBtn.addEventListener('click', () => {
+    addNode();
+    renderAll();
+  });
+
   dom.exportHtmlBtn.addEventListener('click', regenerateHTML);
   dom.exportPdfBtn.addEventListener('click', exportPDF);
   dom.exportPngBtn.addEventListener('click', exportPNG);
@@ -59,6 +90,7 @@ export function setupEventListeners() {
       const text = await file.text();
       importChart(JSON.parse(text));
       dom.companyInput.value = state.company;
+      renderAll();
       setStatus('Archivo JSON importado correctamente.', 'success');
       requestAnimationFrame(() => fitChart());
     } catch (error) {
@@ -69,82 +101,83 @@ export function setupEventListeners() {
     }
   });
 
-  dom.undoBtn.addEventListener('click', () => { undo(); dom.companyInput.value = state.company; setStatus('Se deshizo el último cambio.', 'info'); });
-  dom.redoBtn.addEventListener('click', () => { redo(); dom.companyInput.value = state.company; setStatus('Se rehizo el cambio.', 'info'); });
+  dom.undoBtn.addEventListener('click', () => {
+    undo();
+    dom.companyInput.value = state.company;
+    renderAll();
+  });
+
+  dom.redoBtn.addEventListener('click', () => {
+    redo();
+    dom.companyInput.value = state.company;
+    renderAll();
+  });
 
   dom.autoLayoutBtn.addEventListener('click', () => {
     state.autoLayout = !state.autoLayout;
-    dom.autoLayoutBtn.textContent = `Auto layout: ${state.autoLayout ? 'ON' : 'OFF'}`;
+    dom.autoLayoutBtn.textContent = `Auto layout ${state.autoLayout ? 'ON' : 'OFF'}`;
     if (state.autoLayout) applyLayout();
-    else setStatus('Modo manual activado. Ahora puedes mover y redimensionar libremente.', 'info');
-  });
-
-  dom.connectModeBtn.addEventListener('click', () => {
-    state.connectMode = !state.connectMode;
-    state.connectSourceId = null;
-    dom.connectModeBtn.textContent = state.connectMode ? 'Conectando: ON' : 'Conectar nodos';
-    dom.connectModeBtn.classList.toggle('btn-primary', state.connectMode);
-    dom.connectModeBtn.classList.toggle('btn-secondary', !state.connectMode);
-    setStatus(state.connectMode ? 'Selecciona el nodo origen y luego el destino.' : 'Modo conexión desactivado.', 'info');
     renderCanvas();
-  });
-
-  dom.linkStyleBtn.addEventListener('click', () => {
-    state.linkStyle = state.linkStyle === 'straight' ? 'cable' : 'straight';
-    dom.linkStyleBtn.textContent = state.linkStyle === 'straight' ? 'Línea negra' : 'Cable curvo';
   });
 
   dom.zoomInBtn.addEventListener('click', () => zoomAtCenter(ZOOM_IN_FACTOR));
   dom.zoomOutBtn.addEventListener('click', () => zoomAtCenter(1 / ZOOM_IN_FACTOR));
-  dom.zoomResetBtn.addEventListener('click', () => { state.view.scale = 1; updateZoomLabel(); centerChart(true); });
-
+  dom.zoomResetBtn.addEventListener('click', () => {
+    state.view.scale = 1;
+    centerChart(true);
+  });
   dom.centerBtn.addEventListener('click', () => centerChart(false));
   dom.fitBtn.addEventListener('click', fitChart);
-  dom.toggleConnectorsBtn.addEventListener('click', toggleConnectorType);
-  dom.themeToggleBtn.addEventListener('click', toggleTheme);
+  dom.themeToggleBtn?.addEventListener('click', toggleTheme);
 
   dom.chartStage.addEventListener('click', handleStageClick);
   dom.chartStage.addEventListener('pointerdown', startInteraction);
-  window.addEventListener('pointermove', movePointer);
-  window.addEventListener('pointerup', endPointer);
   dom.canvasViewport.addEventListener('pointerdown', startPan);
   dom.canvasViewport.addEventListener('wheel', handleZoom, { passive: false });
+
+  window.addEventListener('pointermove', movePointer);
+  window.addEventListener('pointerup', endPointer);
   window.addEventListener('resize', drawConnectors);
-
-  window.addEventListener('keydown', e => {
-    const meta = e.ctrlKey || e.metaKey;
-
-    if (meta && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-      e.preventDefault(); undo(); dom.companyInput.value = state.company; return;
-    }
-    if (meta && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
-      e.preventDefault(); redo(); dom.companyInput.value = state.company; return;
-    }
-    if (e.key === 'Delete' && state.selectedNodeId) {
-      removeNode(state.selectedNodeId);
-      setStatus('Nodo eliminado.', 'success');
-    }
-    if (e.key === 'Escape' && state.connectMode) {
-      state.connectSourceId = null;
-      renderCanvas();
-    }
-  });
+  window.addEventListener('keydown', handleKeydown);
 
   dom.nodeList.addEventListener('click', e => {
     const button = e.target.closest('[data-select-node]');
     if (!button) return;
     state.selectedNodeId = button.dataset.selectNode;
+    state.selectedLinkId = null;
     renderAll();
-    requestAnimationFrame(() => focusNode(state.selectedNodeId));
   });
 
   dom.inspectorContent.addEventListener('click', e => {
-    const removeLinkBtn = e.target.closest('[data-remove-link]');
-    if (removeLinkBtn) {
-      removeLink(removeLinkBtn.dataset.removeLink);
-      renderInspector();
-      setStatus('Conexión eliminada.', 'success');
+    const selectLinkBtn = e.target.closest('[data-select-link]');
+    if (selectLinkBtn) {
+      selectLink(selectLinkBtn.dataset.selectLink);
+      renderAll();
       return;
+    }
+
+    const linkAction = e.target.closest('[data-link-action]');
+    if (linkAction && state.selectedLinkId) {
+      const link = state.links.find(item => item.id === state.selectedLinkId);
+      if (!link) return;
+
+      if (linkAction.dataset.linkAction === 'reset-points') {
+        link.points = [];
+        link.fromSide = '';
+        link.toSide = '';
+        link.manual = false;
+        commitTransientChange();
+        renderAll();
+        setStatus('Ruta restablecida.', 'success');
+        return;
+      }
+
+      if (linkAction.dataset.linkAction === 'remove') {
+        removeLink(state.selectedLinkId);
+        renderAll();
+        setStatus('Conector eliminado.', 'success');
+        return;
+      }
     }
 
     const actionEl = e.target.closest('[data-inspector-action]');
@@ -153,92 +186,138 @@ export function setupEventListeners() {
     const action = actionEl.dataset.inspectorAction;
     const id = state.selectedNodeId;
 
-    if (action === 'add-child') { addNode(id); setStatus('Nodo hijo agregado.', 'success'); }
-    if (action === 'duplicate') { duplicateNode(id); setStatus('Nodo duplicado.', 'success'); }
-    if (action === 'remove') { removeNode(id); setStatus('Nodo eliminado.', 'success'); }
+    if (action === 'add-child') addNode(id);
+    if (action === 'duplicate') duplicateNode(id);
+    if (action === 'remove') removeNode(id);
+
+    renderAll();
   });
 
   dom.inspectorContent.addEventListener('input', e => {
     const input = e.target;
+
+    if (input.dataset.linkField && state.selectedLinkId) {
+      const link = state.links.find(item => item.id === state.selectedLinkId);
+      if (!link) return;
+
+      if (input.dataset.linkField === 'thickness') {
+        link.thickness = Math.max(1, Number(input.value || 2));
+      }
+
+      if (input.dataset.linkField === 'color') {
+        link.color = input.value;
+      }
+
+      drawConnectors();
+      return;
+    }
+
     if (!input.dataset.nodeField || !state.selectedNodeId || input.tagName === 'SELECT') return;
 
     if (input.dataset.nodeField === 'width' || input.dataset.nodeField === 'height') {
       const node = state.nodes.find(n => n.id === state.selectedNodeId);
       if (!node) return;
-      const value = Math.max(Number(input.value) || 0, input.dataset.nodeField === 'width' ? NODE_MIN_WIDTH : NODE_MIN_HEIGHT);
+
+      const value = Math.max(
+        Number(input.value || 0),
+        input.dataset.nodeField === 'width' ? NODE_MIN_WIDTH : NODE_MIN_HEIGHT
+      );
+
       node[input.dataset.nodeField] = value;
+      updateConnectedLinksForNode(node.id);
       renderCanvas();
       return;
     }
 
     updateNode(state.selectedNodeId, input.dataset.nodeField, input.value);
   });
-
-  dom.inspectorContent.addEventListener('change', e => {
-    const input = e.target;
-    if (input.dataset.nodeField && state.selectedNodeId && input.tagName === 'SELECT') {
-      updateNode(state.selectedNodeId, input.dataset.nodeField, input.value);
-    }
-  });
 }
 
 function handleStageClick(event) {
+  const linkPath = event.target.closest('[data-link-id]');
+  if (linkPath) {
+    selectLink(linkPath.dataset.linkId);
+    renderAll();
+    return;
+  }
+
   const quickAction = event.target.closest('[data-node-action]');
   if (quickAction) {
     event.stopPropagation();
     const id = quickAction.dataset.id;
     const action = quickAction.dataset.nodeAction;
 
-    if (action === 'add-child') { addNode(id); setStatus('Nodo hijo agregado.', 'success'); }
+    if (action === 'add-child') addNode(id);
     if (action === 'toggle') toggleCollapse(id);
+
+    renderAll();
     return;
   }
 
   const nodeEl = event.target.closest('.chart-node');
-
-  if (nodeEl && state.connectMode) {
-    event.stopPropagation();
-    const id = nodeEl.dataset.id;
-
-    if (!state.connectSourceId) {
-      state.connectSourceId = id;
-      setStatus('Nodo origen seleccionado. Ahora elige el destino.', 'info');
-    } else if (state.connectSourceId !== id) {
-      addLink(state.connectSourceId, id);
-      setStatus('Conexión creada correctamente.', 'success');
-      state.connectSourceId = null;
-    }
-
-    renderCanvas();
+  if (nodeEl && !event.target.closest('.node-port, [data-resize-handle], [data-node-action]')) {
+    state.selectedNodeId = nodeEl.dataset.id;
+    state.selectedLinkId = null;
+    renderAll();
     return;
   }
 
-  if (nodeEl) {
-    state.selectedNodeId = nodeEl.dataset.id;
-    renderAll();
-  }
-}
-
-function toggleConnectorType() {
-  state.connectorType = state.connectorType === 'curved' ? 'straight' : 'curved';
-  dom.toggleConnectorsBtn.textContent = state.connectorType === 'curved' ? 'Conectores curvos' : 'Conectores rectos';
-  drawConnectors();
+  state.selectedNodeId = null;
+  state.selectedLinkId = null;
+  renderAll();
 }
 
 function toggleTheme() {
   const root = document.documentElement;
-  const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
-  root.dataset.theme = next;
-  dom.themeToggleBtn.textContent = next === 'dark' ? 'Tema oscuro' : 'Tema claro';
+  root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
 }
 
 function startInteraction(event) {
-  if (state.connectMode) return;
+  const port = event.target.closest('.node-port');
+  if (port) {
+    event.stopPropagation();
+    state.portDragState = {
+      pointerId: event.pointerId,
+      fromNodeId: port.dataset.nodeId,
+      fromSide: port.dataset.port,
+      current: getSvgPoint(event),
+    };
+    return;
+  }
+
+  const edgeHandle = event.target.closest('.edge-handle');
+  if (edgeHandle) {
+    event.stopPropagation();
+    state.edgeDragState = {
+      pointerId: event.pointerId,
+      linkId: edgeHandle.dataset.linkId,
+      edge: edgeHandle.dataset.edge,
+    };
+    return;
+  }
+
+  const segmentHandle = event.target.closest('.segment-handle');
+  if (segmentHandle) {
+    event.stopPropagation();
+    const orientation = segmentHandle.classList.contains('segment-h') ? 'horizontal' : 'vertical';
+    const link = state.links.find(item => item.id === segmentHandle.dataset.linkId);
+    if (link) link.manual = true;
+
+    state.segmentDragState = {
+      pointerId: event.pointerId,
+      linkId: segmentHandle.dataset.linkId,
+      segIndex: Number(segmentHandle.dataset.segIndex),
+      orientation,
+    };
+    return;
+  }
 
   const handle = event.target.closest('[data-resize-handle]');
   if (handle) {
     event.stopPropagation();
-    startNodeResize(event, handle.dataset.resizeHandle);
+    const nodeEl = event.target.closest('.chart-node');
+    if (!nodeEl) return;
+    startNodeResize(event, nodeEl.dataset.id);
     return;
   }
 
@@ -248,9 +327,16 @@ function startInteraction(event) {
   }
 }
 
+function getSvgPoint(event) {
+  const rect = dom.chartStage.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) / state.view.scale,
+    y: (event.clientY - rect.top) / state.view.scale,
+  };
+}
+
 function startNodeDrag(event, nodeEl) {
   event.stopPropagation();
-
   const nodeId = nodeEl.dataset.id;
   const node = state.nodes.find(n => n.id === nodeId);
   if (!node) return;
@@ -264,9 +350,6 @@ function startNodeDrag(event, nodeEl) {
     originY: node.y,
     moved: false,
   };
-
-  if (state.selectedNodeId !== nodeId) { state.selectedNodeId = nodeId; renderAll(); }
-  dom.canvasViewport.classList.add('dragging-node');
 }
 
 function startNodeResize(event, nodeId) {
@@ -281,14 +364,10 @@ function startNodeResize(event, nodeId) {
     originWidth: node.width,
     originHeight: node.height,
   };
-
-  dom.canvasViewport.classList.add('resizing-node');
 }
 
 function startPan(event) {
-  const nodeEl = event.target.closest('.chart-node');
-  const handle = event.target.closest('[data-resize-handle]');
-  if (nodeEl || handle) return;
+  if (event.target.closest('.chart-node, [data-resize-handle], .node-port, .edge-handle, .segment-handle')) return;
   if (event.target.closest('button, input, select, label')) return;
 
   state.panState = {
@@ -298,17 +377,77 @@ function startPan(event) {
     originX: state.view.x,
     originY: state.view.y,
   };
-
-  dom.canvasViewport.classList.add('dragging');
 }
 
 function movePointer(event) {
+  if (state.portDragState && event.pointerId === state.portDragState.pointerId) {
+    state.portDragState.current = getSvgPoint(event);
+    drawTempConnector();
+    return;
+  }
+
+  if (state.edgeDragState && event.pointerId === state.edgeDragState.pointerId) {
+    const drag = state.edgeDragState;
+    const link = state.links.find(item => item.id === drag.linkId);
+    if (!link) return;
+
+    link.manual = true;
+
+    const nodeId = drag.edge === 'from' ? link.fromId : link.toId;
+    const node = state.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    const side = nearestPortSide(node, getSvgPoint(event));
+    if (drag.edge === 'from') link.fromSide = side;
+    else link.toSide = side;
+
+    link.points = [];
+    const from = state.nodes.find(n => n.id === link.fromId);
+    const to = state.nodes.find(n => n.id === link.toId);
+    if (from && to) ensureEditableLink(link, from, to);
+
+    drawConnectors();
+    return;
+  }
+
+  if (state.segmentDragState && event.pointerId === state.segmentDragState.pointerId) {
+    const drag = state.segmentDragState;
+    const link = state.links.find(item => item.id === drag.linkId);
+    if (!link) return;
+
+    link.manual = true;
+
+    const point = getSvgPoint(event);
+    const a = link.points[drag.segIndex];
+    const b = link.points[drag.segIndex + 1];
+    if (!a || !b) return;
+
+    if (drag.orientation === 'horizontal') {
+      a.y = point.y;
+      b.y = point.y;
+    } else {
+      a.x = point.x;
+      b.x = point.x;
+    }
+
+    drawConnectors();
+    return;
+  }
+
+  if (state.activeAnchor && event.pointerId === state.activeAnchor.pointerId) return;
+
   if (state.resizeState && event.pointerId === state.resizeState.pointerId) {
     const resize = state.resizeState;
     const deltaX = (event.clientX - resize.startX) / state.view.scale;
     const deltaY = (event.clientY - resize.startY) / state.view.scale;
 
-    patchNodeSize(resize.nodeId, resize.originWidth + deltaX, resize.originHeight + deltaY);
+    patchNodeSize(
+      resize.nodeId,
+      resize.originWidth + deltaX,
+      resize.originHeight + deltaY
+    );
+
+    updateConnectedLinksForNode(resize.nodeId);
 
     const nodeEl = dom.chartStage.querySelector(`.chart-node[data-id="${resize.nodeId}"]`);
     const node = state.nodes.find(n => n.id === resize.nodeId);
@@ -327,46 +466,153 @@ function movePointer(event) {
     const nextY = drag.originY + (event.clientY - drag.startY) / state.view.scale;
 
     patchNodePosition(drag.nodeId, nextX, nextY);
+    updateConnectedLinksForNode(drag.nodeId);
     drag.moved = true;
 
     const nodeEl = dom.chartStage.querySelector(`.chart-node[data-id="${drag.nodeId}"]`);
-    if (nodeEl) { nodeEl.style.left = `${nextX}px`; nodeEl.style.top = `${nextY}px`; }
+    if (nodeEl) {
+      nodeEl.style.left = `${nextX}px`;
+      nodeEl.style.top = `${nextY}px`;
+    }
 
     drawConnectors();
     return;
   }
 
-  if (!state.panState || event.pointerId !== state.panState.pointerId) return;
+  if (state.panState && event.pointerId === state.panState.pointerId) {
+    state.view.x = state.panState.originX + (event.clientX - state.panState.startX);
+    state.view.y = state.panState.originY + (event.clientY - state.panState.startY);
+    applyView();
+  }
+}
 
-  state.view.x = state.panState.originX + (event.clientX - state.panState.startX);
-  state.view.y = state.panState.originY + (event.clientY - state.panState.startY);
-  applyView();
+function drawTempConnector() {
+  const svg = dom.chartStage.querySelector('#connectorsLayer');
+  if (!svg || !state.portDragState) return;
+
+  const from = state.nodes.find(n => n.id === state.portDragState.fromNodeId);
+  if (!from) return;
+
+  const start = portPoint(from, state.portDragState.fromSide);
+  const end = state.portDragState.current;
+
+  let temp = svg.querySelector('#tempConnector');
+  if (!temp) {
+    temp = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    temp.id = 'tempConnector';
+    temp.setAttribute('class', 'temp-connector');
+    svg.appendChild(temp);
+  }
+
+  temp.setAttribute('x1', start.x);
+  temp.setAttribute('y1', start.y);
+  temp.setAttribute('x2', end.x);
+  temp.setAttribute('y2', end.y);
 }
 
 function endPointer(event) {
+  if (state.portDragState && event.pointerId === state.portDragState.pointerId) {
+    const dropTarget = document.elementFromPoint(event.clientX, event.clientY);
+    const targetNodeEl = dropTarget?.closest('.chart-node');
+    const targetPortEl = dropTarget?.closest('.node-port');
+
+    if (targetNodeEl && targetNodeEl.dataset.id !== state.portDragState.fromNodeId) {
+      const toId = targetNodeEl.dataset.id;
+      const toSide = targetPortEl ? targetPortEl.dataset.port : null;
+      const link = addLink(state.portDragState.fromNodeId, toId);
+      link.fromSide = state.portDragState.fromSide;
+
+      const toNode = state.nodes.find(n => n.id === toId);
+      const fromNode = state.nodes.find(n => n.id === state.portDragState.fromNodeId);
+
+      if (toSide) {
+        link.toSide = toSide;
+      }
+
+      ensureAutomaticLinkDirection(link, fromNode, toNode);
+      ensureEditableLink(link, fromNode, toNode);
+
+      renderAll();
+      setStatus('Conexión creada. Ahora puedes editar sus tramos.', 'success');
+    } else {
+      drawConnectors();
+    }
+
+    state.portDragState = null;
+    return;
+  }
+
+  if (state.edgeDragState && event.pointerId === state.edgeDragState.pointerId) {
+    state.edgeDragState = null;
+    commitTransientChange();
+    setStatus('Extremo del conector movido.', 'success', 1800);
+    return;
+  }
+
+  if (state.segmentDragState && event.pointerId === state.segmentDragState.pointerId) {
+    state.segmentDragState = null;
+    commitTransientChange();
+    setStatus('Tramo del conector ajustado.', 'success', 1800);
+    return;
+  }
+
   if (state.resizeState && event.pointerId === state.resizeState.pointerId) {
     state.resizeState = null;
-    dom.canvasViewport.classList.remove('resizing-node');
     commitTransientChange();
     renderCanvas();
-    setStatus('Tamaño del nodo actualizado.', 'success', 1800);
+    return;
   }
 
   if (state.nodeDragState && event.pointerId === state.nodeDragState.pointerId) {
     const moved = state.nodeDragState.moved;
     state.nodeDragState = null;
-    dom.canvasViewport.classList.remove('dragging-node');
 
     if (moved) {
       commitTransientChange();
       renderCanvas();
-      setStatus('Posición actualizada.', 'success', 1800);
     }
+    return;
   }
 
   if (state.panState && event.pointerId === state.panState.pointerId) {
     state.panState = null;
-    dom.canvasViewport.classList.remove('dragging');
+  }
+}
+
+function ensureAutomaticLinkDirection(link, fromNode, toNode) {
+  if (!fromNode || !toNode) return;
+
+  const fromCenterX = fromNode.x + fromNode.width / 2;
+  const fromCenterY = fromNode.y + fromNode.height / 2;
+  const toCenterX = toNode.x + toNode.width / 2;
+  const toCenterY = toNode.y + toNode.height / 2;
+
+  const dx = toCenterX - fromCenterX;
+  const dy = toCenterY - fromCenterY;
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    link.fromSide = dx >= 0 ? 'right' : 'left';
+    link.toSide = dx >= 0 ? 'left' : 'right';
+  } else {
+    link.fromSide = dy >= 0 ? 'bottom' : 'top';
+    link.toSide = dy >= 0 ? 'top' : 'bottom';
+  }
+}
+
+function updateConnectedLinksForNode(nodeId) {
+  const relatedLinks = state.links.filter(
+    link => link.fromId === nodeId || link.toId === nodeId
+  );
+
+  for (const link of relatedLinks) {
+    if (link.manual) continue;
+
+    const fromNode = state.nodes.find(n => n.id === link.fromId);
+    const toNode = state.nodes.find(n => n.id === link.toId);
+    if (!fromNode || !toNode) continue;
+
+    ensureAutomaticLinkDirection(link, fromNode, toNode);
+    ensureEditableLink(link, fromNode, toNode);
   }
 }
 
@@ -400,12 +646,15 @@ export function centerChart(resetScale = false) {
 
   const bounds = getChartBounds();
   const viewportRect = dom.canvasViewport.getBoundingClientRect();
-
   const contentWidth = Math.max(bounds.maxX - bounds.minX + NODE_DIMS.width, 680);
   const contentHeight = Math.max(bounds.maxY - bounds.minY + NODE_DIMS.height, 420);
 
-  state.view.x = Math.max(40, (viewportRect.width - contentWidth * state.view.scale) / 2 - bounds.minX * state.view.scale);
-  state.view.y = Math.max(28, (viewportRect.height - contentHeight * state.view.scale) / 2 - bounds.minY * state.view.scale);
+  state.view.x =
+    Math.max(40, viewportRect.width - contentWidth * state.view.scale) / 2 -
+    bounds.minX * state.view.scale;
+  state.view.y =
+    Math.max(28, viewportRect.height - contentHeight * state.view.scale) / 2 -
+    bounds.minY * state.view.scale;
 
   applyView();
   drawConnectors();
@@ -414,43 +663,62 @@ export function centerChart(resetScale = false) {
 function fitChart() {
   const viewportRect = dom.canvasViewport.getBoundingClientRect();
   const bounds = getChartBounds();
-
   const contentWidth = Math.max(bounds.maxX - bounds.minX + NODE_DIMS.width + 120, 600);
   const contentHeight = Math.max(bounds.maxY - bounds.minY + NODE_DIMS.height + 120, 380);
-
   const scaleX = viewportRect.width / contentWidth;
   const scaleY = viewportRect.height / contentHeight;
 
-  state.view.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.min(scaleX, scaleY)));
+  state.view.scale = Math.max(
+    MIN_SCALE,
+    Math.min(MAX_SCALE, Math.min(scaleX, scaleY))
+  );
+
   centerChart(false);
 }
 
 function getChartBounds() {
-  if (!state.nodes.length) return { minX: 0, minY: 0, maxX: 680, maxY: 420 };
+  if (!state.nodes.length) {
+    return { minX: 0, minY: 0, maxX: 680, maxY: 420 };
+  }
 
   const xs = state.nodes.map(n => n.x);
   const ys = state.nodes.map(n => n.y);
 
-  return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
-}
-
-function focusNode(id) {
-  const nodeEl = dom.chartStage.querySelector(`.chart-node[data-id="${id}"]`);
-  if (!nodeEl) return;
-
-  const viewportRect = dom.canvasViewport.getBoundingClientRect();
-  const nodeRect = nodeEl.getBoundingClientRect();
-
-  state.view.x += (viewportRect.left + viewportRect.width / 2) - (nodeRect.left + nodeRect.width / 2);
-  state.view.y += (viewportRect.top + viewportRect.height / 2) - (nodeRect.top + nodeRect.height / 2);
-  applyView();
+  return {
+    minX: Math.min(...xs),
+    minY: Math.min(...ys),
+    maxX: Math.max(...xs),
+    maxY: Math.max(...ys),
+  };
 }
 
 function applyView() {
-  dom.chartStage.style.transform = `translate(${state.view.x}px, ${state.view.y}px) scale(${state.view.scale})`;
-  updateZoomLabel();
+  applyStageTransform();
+  dom.zoomValue.textContent = `${Math.round(state.view.scale * 100)}%`;
 }
 
-function updateZoomLabel() {
-  dom.zoomValue.textContent = `${Math.round(state.view.scale * 100)}%`;
+function handleKeydown(e) {
+  const meta = e.ctrlKey || e.metaKey;
+
+  if (meta && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    undo();
+    dom.companyInput.value = state.company;
+    renderAll();
+    return;
+  }
+
+  if (meta && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+    e.preventDefault();
+    redo();
+    dom.companyInput.value = state.company;
+    renderAll();
+    return;
+  }
+
+  if (e.key === 'Delete' && state.selectedNodeId) {
+    removeNode(state.selectedNodeId);
+    renderAll();
+    setStatus('Nodo eliminado.', 'success');
+  }
 }

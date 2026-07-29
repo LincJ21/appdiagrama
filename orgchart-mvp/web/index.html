@@ -1,136 +1,95 @@
 <!doctype html>
 <html lang="es" data-theme="light">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AppDiagrama | Editor de Organigramas</title>
-  <meta
-    name="description"
-    content="Editor profesional de organigramas con vista interactiva, inspector, exportación y herramientas de organización."
-  />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet"
-  />
-  <link rel="stylesheet" href="./styles.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor de organigrama</title>
+
+  <!-- Estilos del editor -->
+  <link rel="stylesheet" href="./styles.css">
+
+  <!-- Librerías para exportar -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js" defer></script>
+
+  <!-- App del editor -->
+  <script type="module" src="./app.js"></script>
 </head>
 <body>
-  <div class="shell">
-    <aside class="sidebar sidebar-left">
-      <div class="brand-card">
-        <div class="brand-logo" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none">
-            <rect x="5" y="6" width="14" height="10" rx="4" stroke="currentColor" stroke-width="3"/>
-            <rect x="29" y="6" width="14" height="10" rx="4" stroke="currentColor" stroke-width="3"/>
-            <rect x="17" y="31" width="14" height="10" rx="4" stroke="currentColor" stroke-width="3"/>
-            <path d="M12 16v7h24v8" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <div>
-          <p class="eyebrow">AppDiagrama</p>
-          <h1>Editor de organigramas</h1>
-          <p class="muted">
-            Diseña estructuras organizacionales con un estilo claro, corporativo y profesional.
-          </p>
-        </div>
+  <header class="topbar">
+    <div>
+      <h1>Editor de organigrama</h1>
+      <p>Construye y ajusta tu estructura organizacional de forma visual.</p>
+    </div>
+
+    <div class="toolbar-row">
+      <button id="themeToggleBtn">Tema</button>
+      <button id="saveBtn">Guardar</button>
+      <button id="exportHtmlBtn">Regenerar HTML</button>
+      <button id="exportPdfBtn">Exportar PDF</button>
+      <button id="exportPngBtn">Exportar PNG</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Panel izquierdo: controles y lista de nodos -->
+    <aside class="panel sidebar">
+      <h2>Propiedades generales</h2>
+
+      <label>
+        <span>Empresa</span>
+        <input id="companyInput" type="text" placeholder="Nombre de la empresa">
+      </label>
+
+      <label>
+        <span>Buscar</span>
+        <input id="searchInput" type="text" placeholder="Busca por nombre, cargo o área">
+      </label>
+
+      <div id="statsGrid" class="stats-grid"></div>
+
+      <div class="button-grid">
+        <button id="addRootBtn">Agregar raíz</button>
+        <button id="autoLayoutBtn">Auto layout: ON</button>
+        <button id="connectModeBtn">Conectar nodos</button>
+        <button id="centerBtn">Centrar</button>
+        <button id="fitBtn">Ajustar</button>
+        <button id="zoomInBtn">+</button>
+        <button id="zoomOutBtn">−</button>
+        <button id="zoomResetBtn">100%</button>
+        <button id="undoBtn">Undo</button>
+        <button id="redoBtn">Redo</button>
+        <button id="downloadJsonBtn">Descargar JSON</button>
+
+        <label class="import-box">
+          <span>Importar JSON</span>
+          <input id="importJsonInput" type="file" accept="application/json">
+        </label>
       </div>
 
-      <section class="panel">
-        <div class="panel-heading">
-          <h2>Proyecto</h2>
-        </div>
-        <label class="field">
-          <span>Empresa</span>
-          <input id="companyInput" type="text" placeholder="Nombre de la organización" />
-        </label>
-      </section>
-
-      <section class="panel">
-        <div class="panel-heading">
-          <h2>Métricas</h2>
-        </div>
-        <div id="statsGrid" class="stats-grid"></div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-heading row-between">
-          <h2>Estructura</h2>
-          <button id="addRootBtn" class="btn btn-secondary btn-small">+ Raíz</button>
-        </div>
-
-        <label class="field">
-          <span>Buscar nodo</span>
-          <input id="searchInput" type="search" placeholder="Nombre, cargo, área..." />
-        </label>
-
-        <div id="nodeList" class="node-list scrollable"></div>
-      </section>
+      <h2>Nodos</h2>
+      <div id="nodeList" class="node-list"></div>
     </aside>
 
-    <main class="workspace">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">Lienzo interactivo</p>
-          <div class="title-row">
-            <h2>Organigrama</h2>
-            <span id="status" class="status info">Inicializando...</span>
-          </div>
-        </div>
+    <!-- Panel central: canvas del organigrama -->
+    <section class="panel canvas-panel">
+      <div class="canvas-toolbar">
+        <span id="zoomValue">100%</span>
+        <span id="status" class="status info"></span>
+      </div>
 
-        <div class="toolbar">
-          <button id="undoBtn" class="btn btn-ghost">Deshacer</button>
-          <button id="redoBtn" class="btn btn-ghost">Rehacer</button>
-          <button id="autoLayoutBtn" class="btn btn-secondary">Auto layout: ON</button>
-          <button id="fitBtn" class="btn btn-secondary">Ajustar</button>
-          <button id="connectModeBtn" class="btn btn-secondary">Conectar nodos</button>
-          <button id="linkStyleBtn" class="btn btn-ghost">Línea negra</button>
-          <button id="saveBtn" class="btn btn-primary">Guardar</button>
-          <button id="exportHtmlBtn" class="btn btn-secondary">HTML</button>
-          <button id="exportPdfBtn" class="btn btn-secondary">PDF</button>
-          <button id="exportPngBtn" class="btn btn-secondary">PNG</button>
-          <button id="downloadJsonBtn" class="btn btn-secondary">JSON</button>
-          <label class="btn btn-secondary file-btn">
-            Importar
-            <input id="importJsonInput" type="file" accept="application/json" hidden />
-          </label>
-        </div>
-      </header>
+      <div id="canvasViewport" class="canvas-viewport">
+        <div id="chartStage" class="chart-stage"></div>
+      </div>
+    </section>
 
-      <section class="canvas-panel">
-        <div class="canvas-header">
-          <div class="canvas-chip-group">
-            <button id="centerBtn" class="chip-action">Centrar</button>
-            <button id="toggleConnectorsBtn" class="chip-action">Conectores curvos</button>
-            <button id="themeToggleBtn" class="chip-action">Tema claro</button>
-          </div>
-
-          <div class="zoom-controls">
-            <button id="zoomOutBtn" class="zoom-btn" title="Alejar">−</button>
-            <span id="zoomValue" class="zoom-value">100%</span>
-            <button id="zoomInBtn" class="zoom-btn" title="Acercar">+</button>
-            <button id="zoomResetBtn" class="zoom-btn wide" title="Escala real">1:1</button>
-          </div>
-        </div>
-
-        <div id="canvasViewport" class="canvas-viewport">
-          <div id="chartStage" class="chart-stage"></div>
-        </div>
-      </section>
-    </main>
-
-    <aside class="sidebar sidebar-right">
-      <section class="panel sticky-panel">
-        <div class="panel-heading">
-          <h2>Inspector</h2>
-        </div>
-        <div id="inspectorContent" class="scrollable inspector-content"></div>
-      </section>
+    <!-- Panel derecho: inspector -->
+    <aside class="panel inspector">
+      <h2>Inspector</h2>
+      <div id="inspectorContent" class="inspector-fields">
+        <p class="empty">Selecciona un nodo o un conector para editarlo.</p>
+      </div>
     </aside>
-  </div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script type="module" src="./app.js"></script>
+  </main>
 </body>
 </html>

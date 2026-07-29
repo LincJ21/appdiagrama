@@ -1,0 +1,21 @@
+{
+  "company": "Mi Organigrama",
+  "updatedAt": "2026-07-28T10:27:29.259090346-05:00",
+  "nodes": [
+    {
+      "id": "d30f11e6-375c-4ef3-a7b9-e446693380c0",
+      "parentId": "",
+      "name": "Dirección principal",
+      "title": "Nivel estratégico",
+      "area": "",
+      "email": "",
+      "phone": "",
+      "x": 60,
+      "y": 60,
+      "width": 308,
+      "height": 148,
+      "rotation": 0
+    }
+  ],
+  "links": []
+}

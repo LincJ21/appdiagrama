@@ -11,14 +11,12 @@ import (
 	"orgchart-mvp/pkg/storage"
 )
 
-// Server encapsula las dependencias del servidor HTTP.
 type Server struct {
 	store    *storage.Store
 	exporter *export.Exporter
 	mux      *http.ServeMux
 }
 
-// New crea una nueva instancia del servidor.
 func NewServer(store *storage.Store, exporter *export.Exporter) *Server {
 	s := &Server{
 		store:    store,
@@ -29,7 +27,6 @@ func NewServer(store *storage.Store, exporter *export.Exporter) *Server {
 	return s
 }
 
-// Handler expone el router HTTP.
 func (s *Server) Handler() http.Handler {
 	return s.withCORS(s.mux)
 }
@@ -74,7 +71,7 @@ func (s *Server) getOrgChart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(chart)
+	_ = json.NewEncoder(w).Encode(chart)
 }
 
 func (s *Server) saveOrgChart(w http.ResponseWriter, r *http.Request) {
@@ -84,15 +81,18 @@ func (s *Server) saveOrgChart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Guarda tal cual (incluye x, y, width, height de cada nodo)
 	if err := s.store.Save(chart); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Regenerar HTML no debe bloquear el guardado
 	if err := s.exporter.GenerateHTML(chart); err != nil {
 		log.Printf("advertencia: no se pudo regenerar HTML: %v", err)
 	}
 
+	// Devuelve lo persistido (con UpdatedAt real)
 	saved, err := s.store.Load()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -100,7 +100,7 @@ func (s *Server) saveOrgChart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(saved)
+	_ = json.NewEncoder(w).Encode(saved)
 }
 
 func (s *Server) handleExportHTML(w http.ResponseWriter, r *http.Request) {
@@ -116,9 +116,8 @@ func (s *Server) handleExportHTML(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":    "ok",
 		"updatedAt": time.Now().Format(time.RFC3339),
 	})
 }
-

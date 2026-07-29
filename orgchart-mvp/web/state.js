@@ -1,329 +1,328 @@
-import { dom } from './dom.js';
-import { NODE_DIMS, HORIZONTAL_SPACING, VERTICAL_SPACING, NODE_MIN_WIDTH, NODE_MIN_HEIGHT, NODE_MAX_WIDTH, NODE_MAX_HEIGHT } from './config.js';
-import { renderAll, renderCanvas } from './render.js';
+import {
+  NODE_DIMS,
+  HORIZONTAL_SPACING,
+  VERTICAL_SPACING,
+  NODE_MIN_WIDTH,
+  NODE_MIN_HEIGHT,
+  NODE_MAX_WIDTH,
+  NODE_MAX_HEIGHT,
+} from './config.js';
 
 export const state = {
-  company: '',
+  company: 'Mi Organigrama',
   updatedAt: null,
   nodes: [],
   links: [],
   selectedNodeId: null,
   selectedLinkId: null,
+  activeAnchor: null,
+  edgeDragState: null,
+  segmentDragState: null,
+  portDragState: null,
   searchTerm: '',
-  collapsed: new Set(),
-  view: { x: 120, y: 60, scale: 1 },
+  // OFF por defecto para NO reordenar al recargar
+  autoLayout: false,
+  connectMode: false,
+  connectSourceId: null,
+  linkStyle: 'orthogonal',
+  connectorType: 'orthogonal',
+  view: { x: 0, y: 0, scale: 1 },
+  history: [],
+  future: [],
   panState: null,
   nodeDragState: null,
   resizeState: null,
-  connectorType: 'curved',
-  linkStyle: 'straight', // 'straight' (línea negra) | 'cable' (curvo)
-  autoLayout: true,
-  connectMode: false,
-  connectSourceId: null,
-  history: [],
-  future: [],
 };
 
-export function normalizeState(raw) {
-  const nodes = Array.isArray(raw?.nodes) ? raw.nodes : [];
-  const links = Array.isArray(raw?.links) ? raw.links : [];
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clone = value => JSON.parse(JSON.stringify(value));
 
+function snapshot() {
+  return clone({
+    company: state.company,
+    nodes: state.nodes,
+    links: state.links,
+  });
+}
+
+function pushHistory() {
+  state.history.push(snapshot());
+  if (state.history.length > 50) state.history.shift();
+  state.future = [];
+}
+
+function toNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function normalizeState(data = {}) {
   return {
-    company: raw?.company || '',
-    updatedAt: raw?.updatedAt || null,
-    nodes: nodes.map(node => ({
-      id: node.id || crypto.randomUUID(),
-      parentId: node.parentId || '',
-      name: node.name || '',
-      title: node.title || '',
-      area: node.area || '',
-      email: node.email || '',
-      phone: node.phone || '',
-      x: typeof node.x === 'number' ? node.x : 0,
-      y: typeof node.y === 'number' ? node.y : 0,
-      width: typeof node.width === 'number' && node.width > 0 ? node.width : NODE_DIMS.width,
-      height: typeof node.height === 'number' && node.height > 0 ? node.height : NODE_DIMS.height,
-      rotation: typeof node.rotation === 'number' ? node.rotation : 0,
-    })),
-    links: links.map(link => ({
-      id: link.id || crypto.randomUUID(),
+    company: data.company || 'Mi Organigrama',
+    updatedAt: data.updatedAt || null,
+    nodes: (data.nodes || []).map((node, index) => {
+      const hasX = node && node.x !== undefined && node.x !== null && node.x !== '';
+      const hasY = node && node.y !== undefined && node.y !== null && node.y !== '';
+
+      return {
+        id: node.id || uid(),
+        parentId: node.parentId || '',
+        name: node.name || 'Nuevo nodo',
+        title: node.title || '',
+        area: node.area || '',
+        email: node.email || '',
+        phone: node.phone || '',
+        // Respeta posiciones guardadas
+        x: hasX ? toNumber(node.x, index * HORIZONTAL_SPACING) : index * HORIZONTAL_SPACING,
+        y: hasY ? toNumber(node.y, 80) : 80,
+        width: toNumber(node.width, NODE_DIMS.width) || NODE_DIMS.width,
+        height: toNumber(node.height, NODE_DIMS.height) || NODE_DIMS.height,
+        rotation: toNumber(node.rotation, 0),
+        collapsed: !!node.collapsed,
+      };
+    }),
+    links: (data.links || []).map(link => ({
+      id: link.id || uid(),
       fromId: link.fromId || '',
       toId: link.toId || '',
-      style: link.style === 'cable' ? 'cable' : 'straight',
+      style: link.style || 'orthogonal',
       color: link.color || '#111827',
-      thickness: typeof link.thickness === 'number' ? link.thickness : 2.5,
+      thickness: toNumber(link.thickness, 2) || 2,
+      points: Array.isArray(link.points) ? link.points : [],
+      fromSide: link.fromSide || '',
+      toSide: link.toSide || '',
+      fromOffset: toNumber(link.fromOffset, 0),
+      toOffset: toNumber(link.toOffset, 0),
+      manual: !!link.manual,
     })),
   };
 }
 
-export const getNode = id => state.nodes.find(node => node.id === id) || null;
-export const getRoots = () => state.nodes.filter(node => !node.parentId || !getNode(node.parentId));
-export const getChildren = parentId => state.nodes.filter(node => node.parentId === parentId);
-export const getLink = id => state.links.find(link => link.id === id) || null;
+export function applyLayout() {
+  const roots = state.nodes.filter(n => !n.parentId);
+  let rootX = 80;
 
-export function getLevel(nodeId) {
-  let level = 0;
-  let current = getNode(nodeId);
-  const visited = new Set();
+  const walk = (node, depth) => {
+    const children = state.nodes.filter(n => n.parentId === node.id);
 
-  while (current?.parentId && !visited.has(current.id)) {
-    visited.add(current.id);
-    current = getNode(current.parentId);
-    if (current) level++;
-  }
+    if (!children.length) {
+      node.x = rootX;
+      node.y = 60 + depth * VERTICAL_SPACING;
+      rootX += HORIZONTAL_SPACING;
+      return node.x;
+    }
 
-  return level;
-}
+    const xs = children.map(child => walk(child, depth + 1));
+    node.x = (Math.min(...xs) + Math.max(...xs)) / 2;
+    node.y = 60 + depth * VERTICAL_SPACING;
+    return node.x;
+  };
 
-export const getMaxDepth = () => !state.nodes.length ? 0 : Math.max(...state.nodes.map(node => getLevel(node.id))) + 1;
-
-function serializeSnapshot() {
-  return JSON.stringify({
-    company: state.company,
-    updatedAt: state.updatedAt,
-    nodes: state.nodes,
-    links: state.links,
-    selectedNodeId: state.selectedNodeId,
-    connectorType: state.connectorType,
-    linkStyle: state.linkStyle,
-    autoLayout: state.autoLayout,
-  });
-}
-
-export function snapshotState() {
-  state.history.push(serializeSnapshot());
-  if (state.history.length > 80) state.history.shift();
-  state.future = [];
-}
-
-export function restoreFromSnapshot(serialized) {
-  const parsed = JSON.parse(serialized);
-  state.company = parsed.company || '';
-  state.updatedAt = parsed.updatedAt || null;
-  state.nodes = Array.isArray(parsed.nodes) ? parsed.nodes : [];
-  state.links = Array.isArray(parsed.links) ? parsed.links : [];
-  state.selectedNodeId = parsed.selectedNodeId || null;
-  state.connectorType = parsed.connectorType || 'curved';
-  state.linkStyle = parsed.linkStyle || 'straight';
-  state.autoLayout = typeof parsed.autoLayout === 'boolean' ? parsed.autoLayout : true;
-  renderAll();
-}
-
-export function undo() {
-  if (!state.history.length) return;
-  state.future.push(serializeSnapshot());
-  restoreFromSnapshot(state.history.pop());
-}
-
-export function redo() {
-  if (!state.future.length) return;
-  state.history.push(serializeSnapshot());
-  restoreFromSnapshot(state.future.pop());
+  roots.forEach(root => walk(root, 0));
 }
 
 export function addNode(parentId = '') {
-  snapshotState();
+  pushHistory();
 
-  let x = 220;
-  let y = 120;
-
-  if (parentId) {
-    const parentNode = getNode(parentId);
-    if (parentNode) {
-      x = parentNode.x;
-      y = parentNode.y + (parentNode.height || NODE_DIMS.height) + 86;
-    }
-  } else {
-    const rect = dom.canvasViewport.getBoundingClientRect();
-    x = (rect.width / 2 - state.view.x) / state.view.scale;
-    y = (rect.height / 2 - state.view.y) / state.view.scale;
-  }
+  const parent = parentId ? state.nodes.find(n => n.id === parentId) : null;
 
   const node = {
-    id: crypto.randomUUID(),
-    parentId,
-    name: parentId ? 'Nuevo colaborador' : 'Dirección principal',
-    title: parentId ? 'Cargo' : 'Nivel estratégico',
-    area: '',
+    id: uid(),
+    parentId: parentId || '',
+    name: 'Nuevo nodo',
+    title: 'Cargo',
+    area: 'Área',
     email: '',
     phone: '',
-    x,
-    y,
+    x: parent ? parent.x : 120,
+    y: parent ? parent.y + (parent.height || NODE_DIMS.height) + 80 : 120,
     width: NODE_DIMS.width,
     height: NODE_DIMS.height,
     rotation: 0,
+    collapsed: false,
   };
 
   state.nodes.push(node);
   state.selectedNodeId = node.id;
-  if (state.autoLayout) applyLayout();
-  renderAll();
-}
+  state.selectedLinkId = null;
 
-export function duplicateNode(id) {
-  const source = getNode(id);
-  if (!source) return;
-  snapshotState();
-
-  const copy = { ...source, id: crypto.randomUUID(), name: `${source.name} copia`, x: source.x + 40, y: source.y + 40 };
-  state.nodes.push(copy);
-  state.selectedNodeId = copy.id;
   if (state.autoLayout) applyLayout();
-  renderAll();
+  return node;
 }
 
 export function updateNode(id, field, value) {
-  const node = getNode(id);
+  const node = state.nodes.find(n => n.id === id);
   if (!node) return;
+  pushHistory();
+  node[field] = value;
+}
 
-  const normalizedValue = field === 'rotation' ? Number(value) || 0 : value;
-  if (node[field] === normalizedValue) return;
+export function removeNode(id) {
+  pushHistory();
 
-  snapshotState();
-  node[field] = normalizedValue;
+  const idsToRemove = new Set([id]);
+  let changed = true;
 
-  if (field === 'parentId' && state.autoLayout) applyLayout();
-  else renderAll();
+  while (changed) {
+    changed = false;
+    for (const node of state.nodes) {
+      if (!idsToRemove.has(node.id) && idsToRemove.has(node.parentId)) {
+        idsToRemove.add(node.id);
+        changed = true;
+      }
+    }
+  }
+
+  state.nodes = state.nodes.filter(n => !idsToRemove.has(n.id));
+  state.links = state.links.filter(
+    l => !idsToRemove.has(l.fromId) && !idsToRemove.has(l.toId)
+  );
+
+  if (state.selectedNodeId && idsToRemove.has(state.selectedNodeId)) {
+    state.selectedNodeId = state.nodes[0]?.id || null;
+  }
+
+  if (state.selectedLinkId && !state.links.some(l => l.id === state.selectedLinkId)) {
+    state.selectedLinkId = null;
+  }
+}
+
+export function duplicateNode(id) {
+  const node = state.nodes.find(n => n.id === id);
+  if (!node) return null;
+
+  pushHistory();
+
+  const copy = {
+    ...clone(node),
+    id: uid(),
+    x: node.x + 40,
+    y: node.y + 40,
+    name: `${node.name} (copia)`,
+  };
+
+  state.nodes.push(copy);
+  state.selectedNodeId = copy.id;
+  state.selectedLinkId = null;
+  return copy;
+}
+
+export function toggleCollapse(id) {
+  const node = state.nodes.find(n => n.id === id);
+  if (!node) return;
+  node.collapsed = !node.collapsed;
+}
+
+export function undo() {
+  const previous = state.history.pop();
+  if (!previous) return;
+
+  state.future.push(snapshot());
+  state.company = previous.company;
+  state.nodes = previous.nodes;
+  state.links = previous.links;
+}
+
+export function redo() {
+  const next = state.future.pop();
+  if (!next) return;
+
+  state.history.push(snapshot());
+  state.company = next.company;
+  state.nodes = next.nodes;
+  state.links = next.links;
 }
 
 export function patchNodePosition(id, x, y) {
-  const node = getNode(id);
+  const node = state.nodes.find(n => n.id === id);
   if (!node) return;
   node.x = x;
   node.y = y;
 }
 
 export function patchNodeSize(id, width, height) {
-  const node = getNode(id);
+  const node = state.nodes.find(n => n.id === id);
   if (!node) return;
+
   node.width = Math.max(NODE_MIN_WIDTH, Math.min(NODE_MAX_WIDTH, width));
   node.height = Math.max(NODE_MIN_HEIGHT, Math.min(NODE_MAX_HEIGHT, height));
 }
 
 export function commitTransientChange() {
-  snapshotState();
+  pushHistory();
 }
 
-export function removeNode(id) {
-  snapshotState();
+export function importChart(payload) {
+  pushHistory();
 
-  const idsToDelete = collectDescendants(id, new Set([id]));
-  state.nodes = state.nodes.filter(node => !idsToDelete.has(node.id));
-  state.links = state.links.filter(link => !idsToDelete.has(link.fromId) && !idsToDelete.has(link.toId));
-
-  idsToDelete.forEach(nodeId => state.collapsed.delete(nodeId));
-
-  if (idsToDelete.has(state.selectedNodeId)) {
-    state.selectedNodeId = getRoots()[0]?.id || state.nodes[0]?.id || null;
-  }
-
-  if (state.autoLayout) applyLayout();
-  renderAll();
-}
-
-export const collectDescendants = (id, bucket = new Set()) => {
-  getChildren(id).forEach(child => {
-    if (bucket.has(child.id)) return;
-    bucket.add(child.id);
-    collectDescendants(child.id, bucket);
-  });
-  return bucket;
-};
-
-export const getAvailableParents = nodeId => {
-  const descendants = collectDescendants(nodeId);
-  return state.nodes.filter(node => node.id !== nodeId && !descendants.has(node.id));
-};
-
-export function toggleCollapse(id) {
-  state.collapsed.has(id) ? state.collapsed.delete(id) : state.collapsed.add(id);
-  renderCanvas();
-}
-
-export function addLink(fromId, toId) {
-  if (!fromId || !toId || fromId === toId) return;
-
-  const exists = state.links.some(
-    link => (link.fromId === fromId && link.toId === toId) || (link.fromId === toId && link.toId === fromId)
-  );
-  if (exists) return;
-
-  snapshotState();
-  state.links.push({
-    id: crypto.randomUUID(),
-    fromId,
-    toId,
-    style: state.linkStyle,
-    color: '#111827',
-    thickness: 2.5,
-  });
-  renderCanvas();
-}
-
-export function removeLink(id) {
-  snapshotState();
-  state.links = state.links.filter(link => link.id !== id);
-  if (state.selectedLinkId === id) state.selectedLinkId = null;
-  renderCanvas();
-}
-
-export function importChart(raw) {
-  snapshotState();
-  const normalized = normalizeState(raw);
+  const normalized = normalizeState(payload);
   state.company = normalized.company;
   state.updatedAt = normalized.updatedAt;
   state.nodes = normalized.nodes;
   state.links = normalized.links;
-  state.selectedNodeId = normalized.nodes[0]?.id || null;
-  if (state.autoLayout) applyLayout();
-  renderAll();
+  state.selectedNodeId = state.nodes[0]?.id || null;
+  state.selectedLinkId = null;
+
+  // Al importar, solo auto-layout si no hay posiciones
+  const hasPos = state.nodes.every(n => Number.isFinite(Number(n.x)) && Number.isFinite(Number(n.y)));
+  if (state.autoLayout && !hasPos) applyLayout();
 }
 
-export function applyLayout() {
-  if (!state.nodes.length) {
-    renderCanvas();
-    return;
-  }
+export function addLink(fromId, toId) {
+  pushHistory();
 
-  const roots = getRoots();
-  let currentX = 60;
+  const link = {
+    id: uid(),
+    fromId,
+    toId,
+    style: 'orthogonal',
+    color: '#111827',
+    thickness: 2,
+    points: [],
+    fromSide: '',
+    toSide: '',
+    fromOffset: 0,
+    toOffset: 0,
+    manual: false,
+  };
 
-  roots.forEach(root => {
-    const subtreeWidth = getSubtreeWidth(root.id);
-    root.x = currentX + subtreeWidth / 2 - (root.width || NODE_DIMS.width) / 2;
-    root.y = 60;
-    layoutChildrenRecursive(root.id, root.y, currentX);
-    currentX += subtreeWidth + HORIZONTAL_SPACING;
-  });
-
-  renderCanvas();
+  state.links.push(link);
+  state.selectedLinkId = link.id;
+  state.selectedNodeId = null;
+  return link;
 }
 
-function getSubtreeWidth(nodeId) {
-  const node = getNode(nodeId);
-  const nodeWidth = node?.width || NODE_DIMS.width;
-  const children = getChildren(nodeId).filter(() => !state.collapsed.has(nodeId));
-  if (!children.length) return nodeWidth;
-
-  let total = 0;
-  for (const child of children) total += getSubtreeWidth(child.id);
-  return Math.max(nodeWidth, total + (children.length - 1) * HORIZONTAL_SPACING);
+export function removeLink(id) {
+  pushHistory();
+  state.links = state.links.filter(link => link.id !== id);
+  if (state.selectedLinkId === id) state.selectedLinkId = null;
 }
 
-function layoutChildrenRecursive(parentId, parentY, startXForChildren) {
-  if (state.collapsed.has(parentId)) return;
-
-  const children = getChildren(parentId);
-  if (!children.length) return;
-
-  let currentChildX = startXForChildren;
-  const childrenY = parentY + VERTICAL_SPACING;
-
-  children.forEach(child => {
-    const childSubtreeWidth = getSubtreeWidth(child.id);
-    child.x = currentChildX + childSubtreeWidth / 2 - (child.width || NODE_DIMS.width) / 2;
-    child.y = childrenY;
-    layoutChildrenRecursive(child.id, child.y, currentChildX);
-    currentChildX += childSubtreeWidth + HORIZONTAL_SPACING;
-  });
+export function selectLink(id) {
+  state.selectedLinkId = id;
+  state.selectedNodeId = null;
 }
+
+export function clearLinkPoints(id) {
+  const link = state.links.find(l => l.id === id);
+  if (!link) return;
+  pushHistory();
+  link.points = [];
+  link.manual = false;
+}
+
+export function ensureLinkAnchor(id, pointIndex, point) {
+  const link = state.links.find(l => l.id === id);
+  if (!link) return;
+  if (!Array.isArray(link.points)) link.points = [];
+  if (!link.points[pointIndex]) link.points[pointIndex] = { x: point.x, y: point.y };
+}
+
+export function updateLinkAnchor(id, pointIndex, x, y) {
+  const link = state.links.find(l => l.id === id);
+  if (!link) return;
+  if (!Array.isArray(link.points)) link.points = [];
+  link.points[pointIndex] = { x, y };
+}
+
+export default state;

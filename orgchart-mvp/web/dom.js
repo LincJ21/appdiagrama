@@ -8,7 +8,6 @@ export const dom = {
   inspectorContent: document.getElementById('inspectorContent'),
   statusBox: document.getElementById('status'),
   zoomValue: document.getElementById('zoomValue'),
-
   saveBtn: document.getElementById('saveBtn'),
   addRootBtn: document.getElementById('addRootBtn'),
   exportHtmlBtn: document.getElementById('exportHtmlBtn'),
@@ -16,7 +15,6 @@ export const dom = {
   exportPngBtn: document.getElementById('exportPngBtn'),
   downloadJsonBtn: document.getElementById('downloadJsonBtn'),
   importJsonInput: document.getElementById('importJsonInput'),
-
   zoomInBtn: document.getElementById('zoomInBtn'),
   zoomOutBtn: document.getElementById('zoomOutBtn'),
   zoomResetBtn: document.getElementById('zoomResetBtn'),
@@ -27,6 +25,8 @@ export const dom = {
   undoBtn: document.getElementById('undoBtn'),
   redoBtn: document.getElementById('redoBtn'),
   themeToggleBtn: document.getElementById('themeToggleBtn'),
+  connectModeBtn: document.getElementById('connectModeBtn'),
+  linkStyleBtn: document.getElementById('linkStyleBtn'),
 };
 
 export const getCanvasCreateRootBtn = () => document.getElementById('canvasCreateRoot');

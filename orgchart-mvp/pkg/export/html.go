@@ -1,34 +1,49 @@
 package export
 
 import (
+	"fmt"
 	"html/template"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"orgchart-mvp/pkg/models"
 )
 
-// Exporter maneja la generación de archivos HTML.
 type Exporter struct {
 	exportPath string
 	tpl        *template.Template
 }
 
-// NewExporter crea una nueva instancia de Exporter.
+type exportView struct {
+	Company   string
+	UpdatedAt string
+	Width     float64
+	Height    float64
+	Nodes     []models.Node
+	Links     []exportLink
+}
+
+type exportLink struct {
+	ID        string
+	Color     string
+	Thickness float64
+	Path      string
+}
+
 func NewExporter(exportPath string) *Exporter {
-	tpl := template.Must(template.New("export").Funcs(template.FuncMap{
-		"add": func(a, b float64) float64 { return a + b },
-		"div": func(a, b float64) float64 { return a / b },
-	}).Parse(htmlTemplate))
+	tpl := template.Must(template.New("export").Parse(htmlTemplate))
 	return &Exporter{exportPath: exportPath, tpl: tpl}
 }
 
-// GenerateHTML crea el archivo HTML a partir de un organigrama.
 func (e *Exporter) GenerateHTML(chart models.OrgChart) error {
-	if err := os.MkdirAll(filepath.Dir(e.exportPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(e.exportPath), 0o755); err != nil {
 		return err
 	}
+
+	view := buildExportView(chart)
 
 	f, err := os.Create(e.exportPath)
 	if err != nil {
@@ -36,161 +51,336 @@ func (e *Exporter) GenerateHTML(chart models.OrgChart) error {
 	}
 	defer f.Close()
 
-	nodeMap := make(map[string]models.Node)
-	for _, node := range chart.Nodes {
-		if node.Width == 0 {
-			node.Width = 280
-		}
-		if node.Height == 0 {
-			node.Height = 136
-		}
-		nodeMap[node.ID] = node
-	}
-
-	data := map[string]interface{}{
-		"Company":   chart.Company,
-		"UpdatedAt": chart.UpdatedAt,
-		"Roots":     buildTree(chart.Nodes),
-		"Nodes":     chart.Nodes,
-		"NodeMap":   nodeMap,
-		"Links":     chart.Links,
-	}
-
-	return e.tpl.Execute(f, data)
+	return e.tpl.Execute(f, view)
 }
 
-func buildTree(nodes []models.Node) []models.ExportNode {
-	byParent := make(map[string][]models.Node)
-	nodeIndex := make(map[string]models.Node)
+func buildExportView(chart models.OrgChart) exportView {
+	nodes := make([]models.Node, 0, len(chart.Nodes))
+	nodeMap := make(map[string]models.Node, len(chart.Nodes))
 
-	for _, node := range nodes {
-		nodeIndex[node.ID] = node
-		byParent[node.ParentID] = append(byParent[node.ParentID], node)
+	for _, n := range chart.Nodes {
+		if n.Width <= 0 {
+			n.Width = 308
+		}
+		if n.Height <= 0 {
+			n.Height = 148
+		}
+		nodes = append(nodes, n)
+		nodeMap[n.ID] = n
 	}
 
-	var walk func(models.Node, int) models.ExportNode
-	walk = func(node models.Node, level int) models.ExportNode {
-		if node.Width == 0 {
-			node.Width = 280
+	// Bounds iniciales con nodos
+	minX, minY := math.Inf(1), math.Inf(1)
+	maxX, maxY := math.Inf(-1), math.Inf(-1)
+	if len(nodes) == 0 {
+		minX, minY, maxX, maxY = 0, 0, 800, 600
+	} else {
+		for _, n := range nodes {
+			minX = math.Min(minX, n.X)
+			minY = math.Min(minY, n.Y)
+			maxX = math.Max(maxX, n.X+n.Width)
+			maxY = math.Max(maxY, n.Y+n.Height)
 		}
-		if node.Height == 0 {
-			node.Height = 136
-		}
-		exportNode := models.ExportNode{Node: node, Initials: initials(node.Name), Level: level}
-		for _, child := range byParent[node.ID] {
-			exportNode.Children = append(exportNode.Children, walk(child, level+1))
-		}
-		return exportNode
 	}
 
-	var roots []models.ExportNode
-	for _, node := range nodes {
-		if node.ParentID == "" {
-			roots = append(roots, walk(node, 1))
+	// Incluir puntos de conectores en el bounds
+	for _, l := range chart.Links {
+		for _, p := range l.Points {
+			minX = math.Min(minX, p.X)
+			minY = math.Min(minY, p.Y)
+			maxX = math.Max(maxX, p.X)
+			maxY = math.Max(maxY, p.Y)
+		}
+	}
+
+	const pad = 48.0
+	minX -= pad
+	minY -= pad
+	maxX += pad
+	maxY += pad
+
+	width := math.Max(1, maxX-minX)
+	height := math.Max(1, maxY-minY)
+
+	// Desplazar nodos al origen
+	shiftedNodes := make([]models.Node, 0, len(nodes))
+	shiftedMap := make(map[string]models.Node, len(nodes))
+	for _, n := range nodes {
+		n.X -= minX
+		n.Y -= minY
+		shiftedNodes = append(shiftedNodes, n)
+		shiftedMap[n.ID] = n
+	}
+
+	links := make([]exportLink, 0, len(chart.Links))
+
+	// 1) Enlaces manuales con ruta real
+	for _, l := range chart.Links {
+		from, okF := shiftedMap[l.FromID]
+		to, okT := shiftedMap[l.ToID]
+		if !okF || !okT {
 			continue
 		}
-		if _, ok := nodeIndex[node.ParentID]; !ok {
-			roots = append(roots, walk(node, 1))
+
+		color := l.Color
+		if color == "" {
+			color = "#111827"
 		}
+		th := l.Thickness
+		if th <= 0 {
+			th = 2
+		}
+
+		// Desplazar points
+		pts := make([]models.Point, 0, len(l.Points))
+		for _, p := range l.Points {
+			pts = append(pts, models.Point{X: p.X - minX, Y: p.Y - minY})
+		}
+
+		path := buildLinkPath(from, to, l.FromSide, l.ToSide, pts)
+		links = append(links, exportLink{
+			ID:        l.ID,
+			Color:     color,
+			Thickness: th,
+			Path:      path,
+		})
 	}
 
-	return roots
+	// 2) Enlaces jerárquicos parent→child (solo si no hay link manual entre ellos)
+	manualPairs := map[string]bool{}
+	for _, l := range chart.Links {
+		manualPairs[l.FromID+"|"+l.ToID] = true
+		manualPairs[l.ToID+"|"+l.FromID] = true
+	}
+
+	for _, n := range shiftedNodes {
+		if n.ParentID == "" {
+			continue
+		}
+		parent, ok := shiftedMap[n.ParentID]
+		if !ok {
+			continue
+		}
+		if manualPairs[parent.ID+"|"+n.ID] {
+			continue
+		}
+		path := buildLinkPath(parent, n, "bottom", "top", nil)
+		links = append(links, exportLink{
+			ID:        "tree-" + n.ID,
+			Color:     "#94a3b8",
+			Thickness: 2,
+			Path:      path,
+		})
+	}
+
+	updated := chart.UpdatedAt
+	if updated.IsZero() {
+		updated = time.Now()
+	}
+
+	company := chart.Company
+	if company == "" {
+		company = "Organigrama"
+	}
+
+	return exportView{
+		Company:   company,
+		UpdatedAt: updated.Format("2006-01-02 15:04:05"),
+		Width:     width,
+		Height:    height,
+		Nodes:     shiftedNodes,
+		Links:     links,
+	}
 }
 
-func initials(name string) string {
-	parts := strings.Fields(strings.TrimSpace(name))
-	if len(parts) == 0 {
-		return "ND"
+func portPoint(n models.Node, side string) models.Point {
+	switch side {
+	case "left":
+		return models.Point{X: n.X, Y: n.Y + n.Height/2}
+	case "right":
+		return models.Point{X: n.X + n.Width, Y: n.Y + n.Height/2}
+	case "top":
+		return models.Point{X: n.X + n.Width/2, Y: n.Y}
+	default: // bottom
+		return models.Point{X: n.X + n.Width/2, Y: n.Y + n.Height}
 	}
-	if len(parts) == 1 {
-		return strings.ToUpper(string([]rune(parts[0])[0]))
+}
+
+func autoSide(a, b models.Node) string {
+	acx := a.X + a.Width/2
+	acy := a.Y + a.Height/2
+	bcx := b.X + b.Width/2
+	bcy := b.Y + b.Height/2
+	dx := bcx - acx
+	dy := bcy - acy
+	if math.Abs(dx) > math.Abs(dy) {
+		if dx > 0 {
+			return "right"
+		}
+		return "left"
 	}
-	a := string([]rune(parts[0])[0])
-	b := string([]rune(parts[1])[0])
-	return strings.ToUpper(a + b)
+	if dy > 0 {
+		return "bottom"
+	}
+	return "top"
+}
+
+func moveFromSide(p models.Point, side string, dist float64) models.Point {
+	switch side {
+	case "left":
+		return models.Point{X: p.X - dist, Y: p.Y}
+	case "right":
+		return models.Point{X: p.X + dist, Y: p.Y}
+	case "top":
+		return models.Point{X: p.X, Y: p.Y - dist}
+	default:
+		return models.Point{X: p.X, Y: p.Y + dist}
+	}
+}
+
+func defaultInterior(from, to models.Node, fromSide, toSide string) []models.Point {
+	start := portPoint(from, fromSide)
+	end := portPoint(to, toSide)
+	const margin = 36.0
+	stubStart := moveFromSide(start, fromSide, margin)
+	stubEnd := moveFromSide(end, toSide, margin)
+
+	horizontalFirst := fromSide == "left" || fromSide == "right"
+	if horizontalFirst {
+		midX := stubStart.X + (stubEnd.X-stubStart.X)/2
+		return []models.Point{
+			stubStart,
+			{X: midX, Y: stubStart.Y},
+			{X: midX, Y: stubEnd.Y},
+			stubEnd,
+		}
+	}
+	midY := stubStart.Y + (stubEnd.Y-stubStart.Y)/2
+	return []models.Point{
+		stubStart,
+		{X: stubStart.X, Y: midY},
+		{X: stubEnd.X, Y: midY},
+		stubEnd,
+	}
+}
+
+func buildLinkPath(from, to models.Node, fromSide, toSide string, interior []models.Point) string {
+	if fromSide == "" {
+		fromSide = autoSide(from, to)
+	}
+	if toSide == "" {
+		toSide = autoSide(to, from)
+	}
+
+	start := portPoint(from, fromSide)
+	end := portPoint(to, toSide)
+
+	pts := interior
+	if len(pts) == 0 {
+		pts = defaultInterior(from, to, fromSide, toSide)
+	}
+
+	// full route: start + interior + end
+	all := make([]models.Point, 0, len(pts)+2)
+	all = append(all, start)
+	all = append(all, pts...)
+	all = append(all, end)
+
+	var b strings.Builder
+	for i, p := range all {
+		if i == 0 {
+			fmt.Fprintf(&b, "M %.2f %.2f", p.X, p.Y)
+		} else {
+			fmt.Fprintf(&b, " L %.2f %.2f", p.X, p.Y)
+		}
+	}
+	return b.String()
 }
 
 const htmlTemplate = `<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Organigrama exportado</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{.Company}} — Organigrama</title>
   <style>
-    :root {
-      --brand-900: #022D69; --brand-700: #004AAD; --brand-500: #2578CA; --brand-100: #C4DBFA;
-      --gray-900: #111827; --gray-700: #374151; --gray-500: #6B7280; --gray-300: #D1D5DB; --gray-100: #F3F4F6; --white: #ffffff;
-      --shadow: 0 10px 15px -3px rgba(0,0,0,.07), 0 4px 6px -2px rgba(0,0,0,.05);
-      --shadow-lg: 0 20px 25px -5px rgba(0,0,0,.1), 0 10px 10px -5px rgba(0,0,0,.04);
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #f5f7fb;
+      color: #111827;
+      padding: 24px;
     }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Inter, Arial, sans-serif; color: var(--gray-900); background: linear-gradient(180deg, #EEF4FC 0%, #F9FAFB 100%); }
-    .page { padding: 28px; }
-    .hero { padding: 22px 24px; border-radius: 26px; background: linear-gradient(135deg, var(--brand-900), var(--brand-700)); color: #fff; box-shadow: var(--shadow-lg); margin-bottom: 24px; }
-    .hero h1 { margin: 0; font-size: 32px; }
-    .hero p { margin: 8px 0 0; color: rgba(255,255,255,.85); }
-    .board { position: relative; overflow: auto; padding: 22px; border-radius: 28px; background: var(--white); border: 1px solid var(--gray-300); box-shadow: var(--shadow-lg); }
-    .connector-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; z-index: 0; }
-    .connector-layer .tree-link { stroke: #9ca3af; stroke-width: 2; fill: none; }
-    .connector-layer .manual-link { stroke: #111827; stroke-width: 2.5; fill: none; stroke-linecap: round; }
-    .node { border-radius: 22px; background: white; border: 1px solid var(--gray-300); box-shadow: var(--shadow); padding: 18px; position: absolute; z-index: 1; top: var(--y, 0); left: var(--x, 0); width: var(--w, 280px); min-height: var(--h, 136px); transform: rotate(var(--rotation, 0deg)); transform-origin: center center; }
-    .node.root { color: #fff; background: linear-gradient(135deg, var(--brand-900), var(--brand-700)); }
-    .node.root .title, .node.root .meta, .node.root .sub { color: rgba(255,255,255,.85); }
-    .top { display: flex; gap: 14px; align-items: flex-start; }
-    .avatar { width: 48px; height: 48px; border-radius: 16px; display: grid; place-items: center; font-weight: 700; background: var(--brand-100); color: var(--brand-700); flex-shrink: 0; }
-    .node.root .avatar { background: rgba(255,255,255,.1); color: var(--white); }
-    .name { margin: 0; font-size: 18px; font-weight: 800; }
-    .title { margin-top: 6px; font-weight: 700; color: var(--brand-700); }
-    .sub { margin-top: 4px; color: var(--gray-700); font-size: 13px; }
-    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--gray-700); }
+    .header { margin-bottom: 16px; }
+    .header h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 4px; }
+    .header p { font-size: 0.85rem; color: #6b7280; }
+    .board-wrap {
+      display: inline-block;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+      overflow: hidden;
+    }
+    .board {
+      position: relative;
+      width: {{printf "%.0f" .Width}}px;
+      height: {{printf "%.0f" .Height}}px;
+      background: #ffffff;
+    }
+    .connectors {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      overflow: visible;
+    }
+    .node {
+      position: absolute;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      border: 1px solid #dbe3f0;
+      border-radius: 14px;
+      box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+      padding: 14px 16px;
+      overflow: hidden;
+    }
+    .node-name { font-size: 0.98rem; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+    .node-title { font-size: 0.82rem; color: #334155; margin-bottom: 2px; }
+    .node-area { font-size: 0.75rem; color: #64748b; margin-bottom: 6px; }
+    .node-meta { font-size: 0.72rem; color: #94a3b8; line-height: 1.35; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .board-wrap { border: none; box-shadow: none; border-radius: 0; }
+    }
   </style>
 </head>
 <body>
-  <div class="page">
-    <section class="hero">
-      <h1>{{.Company}}</h1>
-      <p>Actualizado: {{.UpdatedAt.Format "2006-01-02 15:04:05"}}</p>
-    </section>
-    <section class="board">
-      <svg class="connector-layer">
-        {{$nodeMap := .NodeMap}}
-        {{range .Nodes}}
-          {{$child := .}}
-          {{if $child.ParentID}}
-            {{with index $nodeMap $child.ParentID}}
-              <line class="tree-link"
-                x1="{{add .X (div .Width 2)}}" y1="{{add .Y .Height}}"
-                x2="{{add $child.X (div $child.Width 2)}}" y2="{{$child.Y}}" />
-            {{end}}
-          {{end}}
-        {{end}}
+  <div class="header">
+    <h1>{{.Company}}</h1>
+    <p>Actualizado: {{.UpdatedAt}} · {{printf "%.0f" .Width}} × {{printf "%.0f" .Height}} px</p>
+  </div>
+  <div class="board-wrap">
+    <div class="board">
+      <svg class="connectors" viewBox="0 0 {{printf "%.0f" .Width}} {{printf "%.0f" .Height}}" xmlns="http://www.w3.org/2000/svg">
         {{range .Links}}
-          {{$from := index $nodeMap .FromID}}
-          {{$to := index $nodeMap .ToID}}
-          <line class="manual-link"
-            x1="{{add $from.X (div $from.Width 2)}}" y1="{{add $from.Y (div $from.Height 2)}}"
-            x2="{{add $to.X (div $to.Width 2)}}" y2="{{add $to.Y (div $to.Height 2)}}" />
+        <path d="{{.Path}}" fill="none" stroke="{{.Color}}" stroke-width="{{.Thickness}}" stroke-linecap="round" stroke-linejoin="round"/>
         {{end}}
       </svg>
-      {{range .Roots}}{{template "node" .}}{{end}}
-    </section>
+      {{range .Nodes}}
+      <div class="node" style="left:{{printf "%.2f" .X}}px;top:{{printf "%.2f" .Y}}px;width:{{printf "%.2f" .Width}}px;min-height:{{printf "%.2f" .Height}}px;">
+        <div class="node-name">{{.Name}}</div>
+        <div class="node-title">{{.Title}}</div>
+        {{if .Area}}<div class="node-area">{{.Area}}</div>{{end}}
+        <div class="node-meta">
+          {{if .Email}}{{.Email}}{{end}}
+          {{if and .Email .Phone}} · {{end}}
+          {{if .Phone}}{{.Phone}}{{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
   </div>
 </body>
 </html>
-{{define "node"}}
-<div class="node {{if eq .Level 1}}root{{end}}" style="--x: {{.X}}px; --y: {{.Y}}px; --w: {{.Width}}px; --h: {{.Height}}px; --rotation: {{.Rotation}}deg;">
-  <div class="top">
-    <div class="avatar">{{.Initials}}</div>
-    <div>
-      <div class="name">{{.Name}}</div>
-      <div class="title">{{.Title}}</div>
-      <div class="sub">{{.Area}}</div>
-      <div class="meta">
-        {{if .Email}}<span>{{.Email}}</span>{{end}}
-        {{if .Phone}}<span>{{.Phone}}</span>{{end}}
-      </div>
-    </div>
-  </div>
-</div>
-{{range .Children}}{{template "node" .}}{{end}}
-{{end}}`
+`

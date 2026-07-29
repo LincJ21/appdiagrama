@@ -1,19 +1,218 @@
-HEX:#C4DBFA
-RGB: (196, 219, 250)
-CMYK: (22,12, 0, 2)
-Pantone: Pastel Blue 290 C
+package export
 
-HEX:#022D69
-RGB: (2, 45,105)
-CMYK: (98, 57, 0, 59)
-Pantone:Dark Blue 2768 C
+import (
+    "encoding/json"
+    "html/template"
+    "os"
+    "path/filepath"
+    "strings"
 
-HEX:#004AAD
-RGB: (0, 74,173)
-CMYK: (100, 57, 0, 32)
-Pantone: Blue 293 C
+    "orgchart-mvp/pkg/models"
+)
 
-HEX:#2578CA
-RGB: (37,120, 202)
-CMYK: (82, 41, 0, 21)
-Pantone: Bright Blue 300 C
+type Exporter struct {
+    exportPath string
+    tpl        *template.Template
+}
+
+func NewExporter(exportPath string) *Exporter {
+    tpl := template.Must(template.New("export").Parse(htmlTemplate))
+    return &Exporter{exportPath: exportPath, tpl: tpl}
+}
+
+func (e *Exporter) GenerateHTML(chart models.OrgChart) error {
+    if err := os.MkdirAll(filepath.Dir(e.exportPath), 0o755); err != nil {
+        return err
+    }
+
+    f, err := os.Create(e.exportPath)
+    if err != nil {
+        return err
+    }
+    defer f.Close()
+
+    nodesJSON, err := json.Marshal(chart.Nodes)
+    if err != nil {
+        return err
+    }
+
+    linksJSON, err := json.Marshal(chart.Links)
+    if err != nil {
+        return err
+    }
+
+    data := map[string]any{
+        "Company":   chart.Company,
+        "UpdatedAt": chart.UpdatedAt,
+        "NodesJSON": template.JS(nodesJSON),
+        "LinksJSON": template.JS(linksJSON),
+    }
+
+    return e.tpl.Execute(f, data)
+}
+
+func initials(name string) string {
+    parts := strings.Fields(strings.TrimSpace(name))
+    if len(parts) == 0 {
+        return "ND"
+    }
+    if len(parts) == 1 {
+        return strings.ToUpper(string([]rune(parts[0])[0]))
+    }
+    a := string([]rune(parts[0])[0])
+    b := string([]rune(parts[1])[0])
+    return strings.ToUpper(a + b)
+}
+
+const htmlTemplate = `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Company}}</title>
+  <style>
+    body { font-family: Inter, Arial, sans-serif; background: #eef4fc; color: #10243e; margin: 0; padding: 24px; }
+    h1 { margin: 0 0 6px; }
+    .meta { color: #4e647d; margin-bottom: 20px; }
+    .board { position: relative; width: 1800px; height: 1200px; background: #f8fbff; border: 1px solid #d8e3f0; border-radius: 18px; overflow: hidden; }
+    .node { position: absolute; background: #fff; border: 1px solid #d4deea; border-radius: 14px; padding: 14px; box-shadow: 0 8px 24px rgba(16,36,62,.08); }
+    .name { font-size: 18px; font-weight: 700; }
+    .title { color: #355070; margin-top: 4px; }
+    .area, .mail { color: #5f748c; margin-top: 8px; font-size: 13px; }
+    svg { position: absolute; inset: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <h1>{{.Company}}</h1>
+  <div class="meta">Actualizado: {{.UpdatedAt.Format "2006-01-02 15:04:05"}}</div>
+  <div class="board" id="board">
+    <svg id="layer" width="1800" height="1200" viewBox="0 0 1800 1200"></svg>
+  </div>
+
+  <script>
+    var nodes = {{.NodesJSON}};
+    var links = {{.LinksJSON}};
+    var board = document.getElementById('board');
+    var layer = document.getElementById('layer');
+
+    function pathFromPoints(points) {
+      if (!points || !points.length) return '';
+      var d = 'M ' + points[0].x + ' ' + points[0].y;
+      for (var i = 1; i < points.length; i++) {
+        d += ' L ' + points[i].x + ' ' + points[i].y;
+      }
+      return d;
+    }
+
+    function exitPoint(from, to) {
+      var fx = from.x + from.width / 2;
+      var fy = from.y + from.height / 2;
+      var tx = to.x + to.width / 2;
+      var ty = to.y + to.height / 2;
+      var dx = tx - fx;
+      var dy = ty - fy;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx >= 0) return { x: from.x + from.width, y: fy, side: 'right' };
+        return { x: from.x, y: fy, side: 'left' };
+      }
+      if (dy >= 0) return { x: fx, y: from.y + from.height, side: 'bottom' };
+      return { x: fx, y: from.y, side: 'top' };
+    }
+
+    function entryPoint(to, from) {
+      var tx = to.x + to.width / 2;
+      var ty = to.y + to.height / 2;
+      var fx = from.x + from.width / 2;
+      var fy = from.y + from.height / 2;
+      var dx = fx - tx;
+      var dy = fy - ty;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx >= 0) return { x: to.x + to.width, y: ty, side: 'right' };
+        return { x: to.x, y: ty, side: 'left' };
+      }
+      if (dy >= 0) return { x: tx, y: to.y + to.height, side: 'bottom' };
+      return { x: tx, y: to.y, side: 'top' };
+    }
+
+    function moveSide(point, distance) {
+      if (point.side === 'left') return { x: point.x - distance, y: point.y };
+      if (point.side === 'right') return { x: point.x + distance, y: point.y };
+      if (point.side === 'top') return { x: point.x, y: point.y - distance };
+      return { x: point.x, y: point.y + distance };
+    }
+
+    function autoRoute(from, to) {
+      var start = exitPoint(from, to);
+      var end = entryPoint(to, from);
+      var s2 = moveSide(start, 28);
+      var e2 = moveSide(end, 28);
+      var points = [start, s2];
+      if (start.side === 'left' || start.side === 'right') {
+        var mx = s2.x + (e2.x - s2.x) / 2;
+        points.push({ x: mx, y: s2.y });
+        points.push({ x: mx, y: e2.y });
+      } else {
+        var my = s2.y + (e2.y - s2.y) / 2;
+        points.push({ x: s2.x, y: my });
+        points.push({ x: e2.x, y: my });
+      }
+      points.push(e2);
+      points.push(end);
+      return points;
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;');
+    }
+
+    var byId = new Map();
+    for (var i = 0; i < nodes.length; i++) {
+      byId.set(nodes[i].id, nodes[i]);
+    }
+
+    var nodesHtml = '';
+    for (var j = 0; j < nodes.length; j++) {
+      var n = nodes[j];
+      nodesHtml += '<article class="node" style="left:' + n.x + 'px;top:' + n.y + 'px;width:' + n.width + 'px;min-height:' + n.height + 'px">';
+      nodesHtml += '<div class="name">' + escapeHtml(n.name) + '</div>';
+      nodesHtml += '<div class="title">' + escapeHtml(n.title) + '</div>';
+      nodesHtml += '<div class="area">' + escapeHtml(n.area) + '</div>';
+      nodesHtml += '<div class="mail">' + escapeHtml(n.email) + '</div>';
+      nodesHtml += '</article>';
+    }
+    board.insertAdjacentHTML('beforeend', nodesHtml);
+
+    var all = [];
+    for (var k = 0; k < nodes.length; k++) {
+      var node = nodes[k];
+      if (!node.parentId) continue;
+      var parent = byId.get(node.parentId);
+      if (!parent) continue;
+      all.push({ color: '#94a3b8', width: 2, points: autoRoute(parent, node) });
+    }
+
+    for (var m = 0; m < links.length; m++) {
+      var link = links[m];
+      var from = byId.get(link.fromId);
+      var to = byId.get(link.toId);
+      if (!from || !to) continue;
+      all.push({
+        color: link.color || '#111827',
+        width: link.thickness || 2,
+        points: (link.points && link.points.length) ? link.points : autoRoute(from, to)
+      });
+    }
+
+    var pathsHtml = '';
+    for (var p = 0; p < all.length; p++) {
+      var item = all[p];
+      pathsHtml += '<path d="' + pathFromPoints(item.points) + '" fill="none" stroke="' + item.color + '" stroke-width="' + item.width + '" stroke-linecap="round" stroke-linejoin="round"></path>';
+    }
+    layer.innerHTML = pathsHtml;
+  </script>
+</body>
+</html>`
