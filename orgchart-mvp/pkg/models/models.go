@@ -22,9 +22,12 @@ type Node struct {
 	Width    float64 `json:"width"`
 	Height   float64 `json:"height"`
 	Rotation float64 `json:"rotation"`
-	Collapsed bool   `json:"collapsed"`
 	Style     string `json:"style"`
 	Color     string `json:"color,omitempty"`
+	TextAlign      string `json:"textAlign,omitempty"`
+	FontWeight     string `json:"fontWeight,omitempty"`
+	FontStyle      string `json:"fontStyle,omitempty"`
+	TextDecoration string `json:"textDecoration,omitempty"`
 }
 
 // Link representa una conexión entre dos nodos (ruta editable).

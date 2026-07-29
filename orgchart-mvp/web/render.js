@@ -248,6 +248,38 @@ export function renderInspector() {
         </select>
       </label>
 
+      <div class="inspector-section">
+        <span>Estilo de Texto</span>
+        <div class="button-group">
+          <button
+            type="button"
+            class="style-btn ${!node.textAlign || node.textAlign === 'left' ? 'active' : ''}"
+            data-text-style="textAlign"
+            data-value="left"
+            title="Alinear a la izquierda"
+          >Izquierda</button>
+          <button
+            type="button"
+            class="style-btn ${node.textAlign === 'center' ? 'active' : ''}"
+            data-text-style="textAlign"
+            data-value="center"
+            title="Centrar"
+          >Centro</button>
+          <button
+            type="button"
+            class="style-btn ${node.textAlign === 'right' ? 'active' : ''}"
+            data-text-style="textAlign"
+            data-value="right"
+            title="Alinear a la derecha"
+          >Derecha</button>
+        </div>
+        <div class="button-group">
+          <button type="button" class="style-btn ${node.fontWeight === 'bold' ? 'active' : ''}" data-text-style="fontWeight" data-value="bold" title="Negrita"><b>B</b></button>
+          <button type="button" class="style-btn ${node.fontStyle === 'italic' ? 'active' : ''}" data-text-style="fontStyle" data-value="italic" title="Cursiva"><i>I</i></button>
+          <button type="button" class="style-btn ${node.textDecoration === 'underline' ? 'active' : ''}" data-text-style="textDecoration" data-value="underline" title="Subrayado"><u>U</u></button>
+        </div>
+      </div>
+
       <div class="inspector-actions">
         <button
           type="button"
@@ -310,6 +342,15 @@ export function renderCanvas() {
     el.style.width = `${node.width}px`;
     el.style.minHeight = `${node.height}px`;
 
+    // Estilos de texto
+    const textAlign = node.textAlign || 'left';
+    el.classList.remove('text-align-left', 'text-align-center', 'text-align-right');
+    el.classList.add(`text-align-${textAlign}`);
+
+    el.classList.toggle('font-weight-bold', node.fontWeight === 'bold');
+    el.classList.toggle('font-style-italic', node.fontStyle === 'italic');
+    el.classList.toggle('text-decoration-underline', node.textDecoration === 'underline');
+
     if (node.color) {
       el.style.setProperty('--node-bg-color', node.color);
       // Lógica de contraste simple para el color del texto
@@ -328,18 +369,17 @@ export function renderCanvas() {
       el.classList.remove('has-custom-color');
     }
 
-    const nodeStyle = node.style || 'classic';
-    const styles = ['classic', 'lined'];
-    for (const s of styles) {
-      el.classList.toggle(`node-style-${s}`, s === nodeStyle);
-    }
+    const nodeStyle = node.style || 'classic'; // default, classic, lined
+    el.classList.toggle('node-style-default', nodeStyle === 'default');
+    el.classList.toggle('node-style-classic', nodeStyle === 'classic');
+    el.classList.toggle('node-style-lined', nodeStyle === 'lined');
 
     el.classList.toggle('selected', node.id === state.selectedNodeId);
 
     // Actualiza contenido interno (se puede optimizar aún más si es necesario)
     el.innerHTML = `
       <div class="node-head">
-        <div>
+        <div class="node-content">
           <h3>${esc(node.name || 'Sin nombre')}</h3>
           <p>${esc(node.title || 'Sin cargo')}</p>
           <small>${esc(node.area || '')}</small>
@@ -351,13 +391,6 @@ export function renderCanvas() {
             data-id="${esc(node.id)}"
           >
             +
-          </button>
-          <button
-            type="button"
-            data-node-action="toggle"
-            data-id="${esc(node.id)}"
-          >
-            ${node.collapsed ? '↕' : '↧'}
           </button>
         </div>
       </div>

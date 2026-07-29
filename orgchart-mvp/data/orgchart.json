@@ -1,6 +1,6 @@
 {
   "company": "Mi Organigrama",
-  "updatedAt": "2026-07-29T15:52:30.435042679-05:00",
+  "updatedAt": "2026-07-29T16:06:46.58362604-05:00",
   "nodes": [
     {
       "id": "hhhodkim",
@@ -12,12 +12,13 @@
       "phone": "",
       "x": 347.57900681729586,
       "y": -24.28287223537599,
-      "width": 258.19742267363495,
+      "width": 220,
       "height": 120,
       "rotation": 0,
-      "collapsed": false,
+      "collapsed": true,
       "style": "classic",
-      "color": "#d41616"
+      "textAlign": "center",
+      "fontWeight": "bold"
     },
     {
       "id": "y5ev7ue9",
@@ -33,7 +34,9 @@
       "height": 148,
       "rotation": 0,
       "collapsed": false,
-      "style": "classic"
+      "style": "classic",
+      "color": "#fafaff",
+      "textAlign": "left"
     },
     {
       "id": "bq6oly5h",
@@ -49,7 +52,8 @@
       "height": 148,
       "rotation": 0,
       "collapsed": true,
-      "style": "classic"
+      "style": "classic",
+      "textAlign": "left"
     },
     {
       "id": "j7gijybw",
@@ -65,7 +69,8 @@
       "height": 148,
       "rotation": 0,
       "collapsed": false,
-      "style": "classic"
+      "style": "classic",
+      "textAlign": "left"
     },
     {
       "id": "ysxtk8ie",
@@ -81,7 +86,8 @@
       "height": 148,
       "rotation": 0,
       "collapsed": false,
-      "style": "classic"
+      "style": "classic",
+      "textAlign": "left"
     },
     {
       "id": "wrfdyhtv",
@@ -97,7 +103,26 @@
       "height": 148,
       "rotation": 0,
       "collapsed": false,
-      "style": "classic"
+      "style": "lined",
+      "color": "#eb0000",
+      "textAlign": "left"
+    },
+    {
+      "id": "2h54p4si",
+      "parentId": "hhhodkim",
+      "name": "Nuevo nodo",
+      "title": "Cargo",
+      "area": "Área",
+      "email": "",
+      "phone": "",
+      "x": 347.57900681729586,
+      "y": 175.71712776462402,
+      "width": 308,
+      "height": 148,
+      "rotation": 0,
+      "collapsed": false,
+      "style": "classic",
+      "textAlign": "center"
     }
   ],
   "links": [
@@ -110,15 +135,15 @@
       "thickness": 2,
       "points": [
         {
-          "x": 605.7764294909308,
+          "x": 567.5790068172959,
           "y": 35.71712776462401
         },
         {
-          "x": 717.7818144904654,
+          "x": 698.6831031536481,
           "y": 35.71712776462401
         },
         {
-          "x": 717.7818144904654,
+          "x": 698.6831031536481,
           "y": 135.60938570999997
         },
         {
@@ -172,15 +197,15 @@
       "thickness": 2,
       "points": [
         {
-          "x": 476.67771815411334,
+          "x": 457.57900681729586,
           "y": 95.71712776462401
         },
         {
-          "x": 534.9411443866643,
+          "x": 525.3917887182556,
           "y": 95.71712776462401
         },
         {
-          "x": 534.9411443866643,
+          "x": 525.3917887182556,
           "y": 288.2378274996508
         },
         {

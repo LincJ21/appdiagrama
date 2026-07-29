@@ -376,9 +376,35 @@ label {
   gap: 12px;
 }
 
+.node-content {
+  width: 100%;
+}
+
+/* Estilos de texto del nodo */
+.chart-node.text-align-center .node-content { text-align: center; }
+.chart-node.text-align-right .node-content { text-align: right; }
+
+.chart-node.font-weight-bold .node-content h3,
+.chart-node.font-weight-bold .node-content p,
+.chart-node.font-weight-bold .node-content small {
+  font-weight: 700;
+}
+
+.chart-node.font-style-italic .node-content h3,
+.chart-node.font-style-italic .node-content p,
+.chart-node.font-style-italic .node-content small {
+  font-style: italic;
+}
+
+.chart-node.text-decoration-underline .node-content h3,
+.chart-node.text-decoration-underline .node-content p,
+.chart-node.text-decoration-underline .node-content small {
+  text-decoration: underline;
+}
+
 .node-head h3 {
   margin: 0 0 4px;
-  font-size: 16px;
+  font-size: 18px;
 }
 
 .node-head p,
@@ -467,6 +493,41 @@ label {
 .inspector-fields {
   display: grid;
   gap: 12px;
+}
+
+.inspector-section {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.inspector-section > span {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.button-group {
+  display: flex;
+  gap: 6px;
+}
+
+.button-group .style-btn {
+  flex: 1;
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.style-btn b, .style-btn i, .style-btn u {
+  font-size: 16px;
+}
+
+.style-btn.active {
+  background-color: var(--accent-2-alpha);
+  border-color: var(--accent-2);
 }
 
 .color-input-wrapper {

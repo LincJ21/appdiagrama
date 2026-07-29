@@ -4,7 +4,6 @@ import state, {
   updateNode,
   removeNode,
   duplicateNode,
-  toggleCollapse,
   applyLayout,
   undo,
   redo,
@@ -156,6 +155,27 @@ export function setupEventListeners() {
       return;
     }
 
+    const textStyleBtn = e.target.closest('[data-text-style]');
+    if (textStyleBtn && state.selectedNodeId) {
+      const { textStyle: property, value } = textStyleBtn.dataset;
+      const node = state.nodes.find(n => n.id === state.selectedNodeId);
+      if (!node) return;
+
+      // Propiedades de tipo 'toggle' (bold, italic, underline)
+      if (['fontWeight', 'fontStyle', 'textDecoration'].includes(property)) {
+        const newValue = node[property] === value ? '' : value;
+        updateNode(state.selectedNodeId, property, newValue);
+      }
+      // Propiedades exclusivas (text-align)
+      else if (property === 'textAlign') {
+        updateNode(state.selectedNodeId, property, value);
+      }
+
+      commitTransientChange();
+      renderAll();
+      return;
+    }
+
     const linkAction = e.target.closest('[data-link-action]');
     if (linkAction && state.selectedLinkId) {
       const link = state.links.find(item => item.id === state.selectedLinkId);
@@ -201,6 +221,8 @@ export function setupEventListeners() {
 
   dom.inspectorContent.addEventListener('input', e => {
     const input = e.target;
+    // Los cambios de color y select se manejan en el evento 'change' para confirmar el valor final.
+    if (input.type === 'color' || input.tagName === 'SELECT') return;
 
     if (input.dataset.linkField && state.selectedLinkId) {
       const link = state.links.find(item => item.id === state.selectedLinkId);
@@ -271,7 +293,6 @@ function handleStageClick(event) {
     const action = quickAction.dataset.nodeAction;
 
     if (action === 'add-child') addNode(id);
-    if (action === 'toggle') toggleCollapse(id);
 
     renderAll();
     return;

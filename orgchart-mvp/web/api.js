@@ -24,9 +24,12 @@ function serializeNodes(nodes) {
     width: Number(n.width) || 308,
     height: Number(n.height) || 148,
     rotation: Number(n.rotation) || 0,
-    collapsed: !!n.collapsed,
     style: n.style || 'classic',
     color: n.color || '',
+    textAlign: n.textAlign || 'left',
+    fontWeight: n.fontWeight || '',
+    fontStyle: n.fontStyle || '',
+    textDecoration: n.textDecoration || '',
   }));
 }
 
@@ -399,12 +402,18 @@ function buildCleanExportRoot(background) {
 
     el.style.cssText = css.join(';');
 
+    const textStyles = `text-align: ${n.textAlign || 'left'};`;
+    const titleStyles = `font-size:18px; font-weight:${n.fontWeight === 'bold' ? '700' : '600'}; font-style:${n.fontStyle || 'normal'}; text-decoration:${n.textDecoration || 'none'}; margin-bottom:4px; line-height:1.25;`;
+    const otherTextStyles = `font-weight:${n.fontWeight || 'normal'}; font-style:${n.fontStyle || 'normal'}; text-decoration:${n.textDecoration || 'none'};`;
+
     el.innerHTML = `
-      <div style="font-size:15px;font-weight:700;margin-bottom:4px;line-height:1.25;">${esc(n.name || '')}</div>
-      <div style="font-size:13px;color:#334155;margin-bottom:2px;">${esc(n.title || '')}</div>
-      ${n.area ? `<div style="font-size:12px;color:#64748b;margin-bottom:6px;">${esc(n.area)}</div>` : ''}
-      <div style="font-size:11px;color:#94a3b8;line-height:1.35;">
-        ${esc(n.email || '')}${n.email && n.phone ? ' · ' : ''}${esc(n.phone || '')}
+      <div class="node-content" style="${textStyles}">
+        <div style="${titleStyles}">${esc(n.name || '')}</div>
+        <div style="font-size:14px; color:#334155; margin-bottom:2px; ${otherTextStyles}">${esc(n.title || '')}</div>
+        ${n.area ? `<div style="font-size:12px; color:#64748b; margin-bottom:6px; ${otherTextStyles}">${esc(n.area)}</div>` : ''}
+        <div style="font-size:11px; color:#94a3b8; line-height:1.35;">
+          ${esc(n.email || '')}${n.email && n.phone ? ' · ' : ''}${esc(n.phone || '')}
+        </div>
       </div>
     `;
     root.appendChild(el);

@@ -78,7 +78,12 @@ export function normalizeState(data = {}) {
         width: toNumber(node.width, NODE_DIMS.width) || NODE_DIMS.width,
         height: toNumber(node.height, NODE_DIMS.height) || NODE_DIMS.height,
         rotation: toNumber(node.rotation, 0),
-        collapsed: !!node.collapsed,
+        style: node.style || 'classic',
+        color: node.color || '',
+        textAlign: node.textAlign || 'left',
+        fontWeight: node.fontWeight || '',
+        fontStyle: node.fontStyle || '',
+        textDecoration: node.textDecoration || '',
       };
     }),
     links: (data.links || []).map(link => ({
@@ -139,7 +144,12 @@ export function addNode(parentId = '') {
     width: NODE_DIMS.width,
     height: NODE_DIMS.height,
     rotation: 0,
-    collapsed: false,
+    style: 'classic',
+    color: '',
+    textAlign: 'left',
+    fontWeight: '',
+    fontStyle: '',
+    textDecoration: '',
   };
 
   state.nodes.push(node);
@@ -205,12 +215,6 @@ export function duplicateNode(id) {
   state.selectedNodeId = copy.id;
   state.selectedLinkId = null;
   return copy;
-}
-
-export function toggleCollapse(id) {
-  const node = state.nodes.find(n => n.id === id);
-  if (!node) return;
-  node.collapsed = !node.collapsed;
 }
 
 export function undo() {

@@ -383,9 +383,10 @@ const htmlTemplate = `<!DOCTYPE html>
       box-shadow: none;
       background: #f8fbff;
     }
-    .node-name { font-size: 0.98rem; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
-    .node-title { font-size: 0.82rem; color: #334155; margin-bottom: 2px; }
-    .node-area { font-size: 0.75rem; color: #64748b; margin-bottom: 6px; }
+    .node-content { width: 100%; }
+    .node-name { font-size: 1.1rem; margin-bottom: 4px; }
+    .node-title { font-size: 0.9rem; margin-bottom: 2px; }
+    .node-area { font-size: 0.8rem; margin-bottom: 6px; }
     .node-meta { font-size: 0.72rem; color: #94a3b8; line-height: 1.35; }
     @media print {
       body { background: #fff; padding: 0; }
@@ -407,13 +408,15 @@ const htmlTemplate = `<!DOCTYPE html>
       </svg>
       {{range .Nodes}}
       <div class="node node-style-{{if .Style}}{{.Style}}{{else}}classic{{end}}" style="left:{{printf "%.2f" .X}}px;top:{{printf "%.2f" .Y}}px;width:{{printf "%.2f" .Width}}px;min-height:{{printf "%.2f" .Height}}px;{{if .Color}}background-color:{{.Color}};color:{{.TextColor}};{{end}}">
-        <div class="node-name" {{if .TextColor}}style="color:{{.TextColor}};"{{end}}>{{.Name}}</div>
-        <div class="node-title" {{if .TextColor}}style="color:{{.TextColor}};opacity:0.9;"{{end}}>{{.Title}}</div>
-        {{if .Area}}<div class="node-area" {{if .TextColor}}style="color:{{.TextColor}};opacity:0.9;"{{end}}>{{.Area}}</div>{{end}}
-        <div class="node-meta" {{if .TextColor}}style="color:{{.TextColor}};opacity:0.8;"{{end}}>
-          {{if .Email}}{{.Email}}{{end}}
-          {{if and .Email .Phone}} · {{end}}
-          {{if .Phone}}{{.Phone}}{{end}}
+        <div class="node-content" style="text-align: {{if .TextAlign}}{{.TextAlign}}{{else}}left{{end}};">
+          <div class="node-name" style="color:{{if .TextColor}}{{.TextColor}}{{else}}#0f172a{{end}}; font-weight: {{if eq .FontWeight "bold"}}700{{else}}600{{end}}; font-style: {{if .FontStyle}}{{.FontStyle}}{{else}}normal{{end}}; text-decoration: {{if .TextDecoration}}{{.TextDecoration}}{{else}}none{{end}};">{{.Name}}</div>
+          <div class="node-title" style="color:{{if .TextColor}}{{.TextColor}}{{else}}#334155{{end}}; opacity: 0.9; font-weight: {{if .FontWeight}}{{.FontWeight}}{{else}}normal{{end}}; font-style: {{if .FontStyle}}{{.FontStyle}}{{else}}normal{{end}}; text-decoration: {{if .TextDecoration}}{{.TextDecoration}}{{else}}none{{end}};">{{.Title}}</div>
+          {{if .Area}}<div class="node-area" style="color:{{if .TextColor}}{{.TextColor}}{{else}}#64748b{{end}}; opacity: 0.9; font-weight: {{if .FontWeight}}{{.FontWeight}}{{else}}normal{{end}}; font-style: {{if .FontStyle}}{{.FontStyle}}{{else}}normal{{end}}; text-decoration: {{if .TextDecoration}}{{.TextDecoration}}{{else}}none{{end}};">{{.Area}}</div>{{end}}
+          <div class="node-meta" style="color:{{if .TextColor}}{{.TextColor}}{{else}}#94a3b8{{end}}; opacity: 0.8;">
+            {{if .Email}}{{.Email}}{{end}}
+            {{if and .Email .Phone}} · {{end}}
+            {{if .Phone}}{{.Phone}}{{end}}
+          </div>
         </div>
       </div>
       {{end}}
