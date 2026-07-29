@@ -25,6 +25,8 @@ function serializeNodes(nodes) {
     height: Number(n.height) || 148,
     rotation: Number(n.rotation) || 0,
     collapsed: !!n.collapsed,
+    style: n.style || 'classic',
+    color: n.color || '',
   }));
 }
 
@@ -348,7 +350,8 @@ function buildCleanExportRoot(background) {
     const el = document.createElement('div');
     const w = Number(n.width) || 308;
     const h = Number(n.height) || 148;
-    el.style.cssText = [
+
+    const css = [
       'position:absolute',
       `left:${(Number(n.x) || 0) - bounds.minX}px`,
       `top:${(Number(n.y) || 0) - bounds.minY}px`,
@@ -356,13 +359,45 @@ function buildCleanExportRoot(background) {
       `min-height:${h}px`,
       'box-sizing:border-box',
       'padding:14px 16px',
-      'border:1px solid #dbe3f0',
-      'border-radius:14px',
-      'background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)',
-      'box-shadow:0 6px 16px rgba(15,23,42,0.08)',
       'overflow:hidden',
       'color:#0f172a',
-    ].join(';');
+    ];
+
+    if (n.color) {
+      css.push(`background:${esc(n.color)}`);
+      const hex = n.color.replace('#', '');
+      if (hex.length === 6) {
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        css.push(yiq < 128 ? 'color:#ffffff' : 'color:#0f172a');
+      }
+    } else {
+      const style = n.style || 'classic';
+      switch (style) {
+        case 'classic':
+          css.push('background:#ffffff');
+          break;
+        case 'lined':
+          css.push('background:#f8fbff');
+          break;
+        default: // 'default'
+          css.push('background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)');
+          break;
+      }
+    }
+
+    // Aplicar bordes y sombras según el estilo, independientemente del color de fondo
+    const style = n.style || 'classic';
+    if (style === 'classic')
+      css.push('border-radius:4px', 'border:1px solid #102033', 'box-shadow:0 1px 3px rgba(0, 0, 0, 0.05)');
+    else if (style === 'lined')
+      css.push('border-radius:8px', 'border:2px dashed #102033', 'box-shadow:none');
+    else
+      css.push('border:1px solid #dbe3f0', 'border-radius:14px', 'box-shadow:0 6px 16px rgba(15,23,42,0.08)');
+
+    el.style.cssText = css.join(';');
 
     el.innerHTML = `
       <div style="font-size:15px;font-weight:700;margin-bottom:4px;line-height:1.25;">${esc(n.name || '')}</div>

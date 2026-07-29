@@ -48,23 +48,37 @@
 
       <div id="statsGrid" class="stats-grid"></div>
 
-      <div class="button-grid">
-        <button id="addRootBtn">Agregar raíz</button>
-        <button id="autoLayoutBtn">Auto layout: ON</button>
-        <button id="connectModeBtn">Conectar nodos</button>
-        <button id="centerBtn">Centrar</button>
-        <button id="fitBtn">Ajustar</button>
-        <button id="zoomInBtn">+</button>
-        <button id="zoomOutBtn">−</button>
-        <button id="zoomResetBtn">100%</button>
-        <button id="undoBtn">Undo</button>
-        <button id="redoBtn">Redo</button>
-        <button id="downloadJsonBtn">Descargar JSON</button>
-
-        <label class="import-box">
-          <span>Importar JSON</span>
-          <input id="importJsonInput" type="file" accept="application/json">
-        </label>
+      <div class="sidebar-section">
+        <h3>Edición</h3>
+        <div class="button-grid">
+          <button id="addRootBtn">Agregar raíz</button>
+          <button id="autoLayoutBtn">Auto layout: ON</button>
+          <button id="connectModeBtn">Conectar nodos</button>
+          <button id="undoBtn">Deshacer</button>
+          <button id="redoBtn">Rehacer</button>
+        </div>
+      </div>
+      
+      <div class="sidebar-section">
+        <h3>Vista</h3>
+        <div class="button-grid">
+          <button id="centerBtn">Centrar</button>
+          <button id="fitBtn">Ajustar</button>
+          <button id="zoomInBtn">+</button>
+          <button id="zoomOutBtn">−</button>
+          <button id="zoomResetBtn">100%</button>
+        </div>
+      </div>
+      
+      <div class="sidebar-section">
+        <h3>Datos</h3>
+        <div class="button-grid">
+          <button id="downloadJsonBtn">Descargar JSON</button>
+          <label class="import-box">
+            <span>Importar JSON</span>
+            <input id="importJsonInput" type="file" accept="application/json">
+          </label>
+        </div>
       </div>
 
       <h2>Nodos</h2>

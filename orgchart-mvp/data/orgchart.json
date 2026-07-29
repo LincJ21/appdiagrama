@@ -1,6 +1,6 @@
 {
   "company": "Mi Organigrama",
-  "updatedAt": "2026-07-29T11:35:41.485106987-05:00",
+  "updatedAt": "2026-07-29T15:52:30.435042679-05:00",
   "nodes": [
     {
       "id": "hhhodkim",
@@ -10,11 +10,14 @@
       "area": "Área",
       "email": "",
       "phone": "",
-      "x": 520.34375,
-      "y": -44.125,
+      "x": 347.57900681729586,
+      "y": -24.28287223537599,
       "width": 258.19742267363495,
       "height": 120,
-      "rotation": 0
+      "rotation": 0,
+      "collapsed": false,
+      "style": "classic",
+      "color": "#d41616"
     },
     {
       "id": "y5ev7ue9",
@@ -24,11 +27,13 @@
       "area": "Área",
       "email": "",
       "phone": "",
-      "x": 86.89684825,
-      "y": 273.72115925,
+      "x": -39.15676939490132,
+      "y": 188.09973809915823,
       "width": 308,
       "height": 148,
-      "rotation": 0
+      "rotation": 0,
+      "collapsed": false,
+      "style": "classic"
     },
     {
       "id": "bq6oly5h",
@@ -38,11 +43,13 @@
       "area": "Área",
       "email": "",
       "phone": "",
-      "x": 480.28441175,
-      "y": 446.6036690000001,
+      "x": 439.20457061921536,
+      "y": 288.2378274996508,
       "width": 308,
       "height": 148,
-      "rotation": 0
+      "rotation": 0,
+      "collapsed": true,
+      "style": "classic"
     },
     {
       "id": "j7gijybw",
@@ -52,11 +59,45 @@
       "area": "Área",
       "email": "",
       "phone": "",
-      "x": 877.0110467500001,
-      "y": 123.09179499999999,
+      "x": 829.7871994900001,
+      "y": 61.60938570999997,
       "width": 308,
       "height": 148,
-      "rotation": 0
+      "rotation": 0,
+      "collapsed": false,
+      "style": "classic"
+    },
+    {
+      "id": "ysxtk8ie",
+      "parentId": "bq6oly5h",
+      "name": "Nuevo nodo",
+      "title": "Cargo",
+      "area": "Área",
+      "email": "",
+      "phone": "",
+      "x": 517.7574442892154,
+      "y": 609.1905440396508,
+      "width": 308,
+      "height": 148,
+      "rotation": 0,
+      "collapsed": false,
+      "style": "classic"
+    },
+    {
+      "id": "wrfdyhtv",
+      "parentId": "y5ev7ue9",
+      "name": "Nuevo nodo",
+      "title": "Cargo",
+      "area": "Área",
+      "email": "",
+      "phone": "",
+      "x": 31.782401805098672,
+      "y": 649.7116227091584,
+      "width": 308,
+      "height": 148,
+      "rotation": 0,
+      "collapsed": false,
+      "style": "classic"
     }
   ],
   "links": [
@@ -69,55 +110,24 @@
       "thickness": 2,
       "points": [
         {
-          "x": 649.4424613368175,
-          "y": 75.875
+          "x": 605.7764294909308,
+          "y": 35.71712776462401
         },
         {
-          "x": 650.8031005859375,
-          "y": 75.875
+          "x": 717.7818144904654,
+          "y": 35.71712776462401
         },
         {
-          "x": 650.8031005859375,
-          "y": 197.091795
+          "x": 717.7818144904654,
+          "y": 135.60938570999997
         },
         {
-          "x": 877.0110467500001,
-          "y": 197.091795
+          "x": 829.7871994900001,
+          "y": 135.60938570999997
         }
       ],
-      "fromSide": "bottom",
+      "fromSide": "right",
       "toSide": "left",
-      "fromOffset": 0,
-      "toOffset": 0,
-      "manual": false
-    },
-    {
-      "id": "qfjry4fy",
-      "fromId": "hhhodkim",
-      "toId": "bq6oly5h",
-      "style": "orthogonal",
-      "color": "#111827",
-      "thickness": 2,
-      "points": [
-        {
-          "x": 649.4424613368175,
-          "y": 75.875
-        },
-        {
-          "x": 647.9163818359375,
-          "y": 75.875
-        },
-        {
-          "x": 647.9163818359375,
-          "y": 446.6036690000001
-        },
-        {
-          "x": 634.28441175,
-          "y": 446.6036690000001
-        }
-      ],
-      "fromSide": "bottom",
-      "toSide": "top",
       "fromOffset": 0,
       "toOffset": 0,
       "manual": false
@@ -131,24 +141,148 @@
       "thickness": 2,
       "points": [
         {
-          "x": 649.4424613368175,
-          "y": 75.875
+          "x": 347.57900681729586,
+          "y": 35.71712776462401
         },
         {
-          "x": 651.1273193359375,
-          "y": 75.875
+          "x": 308.2111187111973,
+          "y": 35.71712776462401
         },
         {
-          "x": 651.1273193359375,
-          "y": 347.72115925
+          "x": 308.2111187111973,
+          "y": 262.09973809915823
         },
         {
-          "x": 394.89684825,
-          "y": 347.72115925
+          "x": 268.8432306050987,
+          "y": 262.09973809915823
+        }
+      ],
+      "fromSide": "left",
+      "toSide": "right",
+      "fromOffset": 0,
+      "toOffset": 0,
+      "manual": false
+    },
+    {
+      "id": "p3ezriz5",
+      "fromId": "hhhodkim",
+      "toId": "bq6oly5h",
+      "style": "orthogonal",
+      "color": "#111827",
+      "thickness": 2,
+      "points": [
+        {
+          "x": 476.67771815411334,
+          "y": 95.71712776462401
+        },
+        {
+          "x": 534.9411443866643,
+          "y": 95.71712776462401
+        },
+        {
+          "x": 534.9411443866643,
+          "y": 288.2378274996508
+        },
+        {
+          "x": 593.2045706192154,
+          "y": 288.2378274996508
         }
       ],
       "fromSide": "bottom",
-      "toSide": "right",
+      "toSide": "top",
+      "fromOffset": 0,
+      "toOffset": 0,
+      "manual": false
+    },
+    {
+      "id": "bcjnflyt",
+      "fromId": "bq6oly5h",
+      "toId": "ysxtk8ie",
+      "style": "orthogonal",
+      "color": "#111827",
+      "thickness": 2,
+      "points": [
+        {
+          "x": 593.2045706192154,
+          "y": 436.2378274996508
+        },
+        {
+          "x": 632.4810074542154,
+          "y": 436.2378274996508
+        },
+        {
+          "x": 632.4810074542154,
+          "y": 609.1905440396508
+        },
+        {
+          "x": 671.7574442892154,
+          "y": 609.1905440396508
+        }
+      ],
+      "fromSide": "bottom",
+      "toSide": "top",
+      "fromOffset": 0,
+      "toOffset": 0,
+      "manual": false
+    },
+    {
+      "id": "98prpuoi",
+      "fromId": "y5ev7ue9",
+      "toId": "wrfdyhtv",
+      "style": "orthogonal",
+      "color": "#111827",
+      "thickness": 2,
+      "points": [
+        {
+          "x": 114.84323060509868,
+          "y": 336.09973809915823
+        },
+        {
+          "x": 150.31281620509867,
+          "y": 336.09973809915823
+        },
+        {
+          "x": 150.31281620509867,
+          "y": 649.7116227091584
+        },
+        {
+          "x": 185.7824018050987,
+          "y": 649.7116227091584
+        }
+      ],
+      "fromSide": "bottom",
+      "toSide": "top",
+      "fromOffset": 0,
+      "toOffset": 0,
+      "manual": false
+    },
+    {
+      "id": "wzwr4i2m",
+      "fromId": "y5ev7ue9",
+      "toId": "wrfdyhtv",
+      "style": "orthogonal",
+      "color": "#111827",
+      "thickness": 2,
+      "points": [
+        {
+          "x": 114.84323060509868,
+          "y": 336.09973809915823
+        },
+        {
+          "x": 150.31281620509867,
+          "y": 336.09973809915823
+        },
+        {
+          "x": 150.31281620509867,
+          "y": 649.7116227091584
+        },
+        {
+          "x": 185.7824018050987,
+          "y": 649.7116227091584
+        }
+      ],
+      "fromSide": "bottom",
+      "toSide": "top",
       "fromOffset": 0,
       "toOffset": 0,
       "manual": false

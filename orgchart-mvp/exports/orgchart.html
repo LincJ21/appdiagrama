@@ -25,8 +25,8 @@
     }
     .board {
       position: relative;
-      width: 1194px;
-      height: 735px;
+      width: 1273px;
+      height: 918px;
       background: #ffffff;
     }
     .connectors {
@@ -38,13 +38,27 @@
       overflow: visible;
     }
     .node {
-      position: absolute;
+      position: absolute;      
+      padding: 14px 16px;
+      overflow: hidden;
+    }
+    .node-style-default {
       background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
       border: 1px solid #dbe3f0;
       border-radius: 14px;
       box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
-      padding: 14px 16px;
-      overflow: hidden;
+    }
+    .node-style-classic {
+      border-radius: 4px;
+      border: 1px solid #102033;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      background: #ffffff;
+    }
+    .node-style-lined {
+      border-radius: 8px;
+      border: 2px dashed #102033;
+      box-shadow: none;
+      background: #f8fbff;
     }
     .node-name { font-size: 0.98rem; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
     .node-title { font-size: 0.82rem; color: #334155; margin-bottom: 2px; }
@@ -59,58 +73,86 @@
 <body>
   <div class="header">
     <h1>Mi Organigrama</h1>
-    <p>Actualizado: 2026-07-29 11:35:41 · 1194 × 735 px</p>
+    <p>Actualizado: 2026-07-29 15:52:30 · 1273 × 918 px</p>
   </div>
   <div class="board-wrap">
     <div class="board">
-      <svg class="connectors" viewBox="0 0 1194 735" xmlns="http://www.w3.org/2000/svg">
+      <svg class="connectors" viewBox="0 0 1273 918" xmlns="http://www.w3.org/2000/svg">
         
-        <path d="M 610.55 168.00 L 610.55 168.00 L 611.91 168.00 L 611.91 289.22 L 838.11 289.22 L 838.11 289.22" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 692.93 108.00 L 692.93 108.00 L 804.94 108.00 L 804.94 207.89 L 916.94 207.89 L 916.94 207.89" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         
-        <path d="M 610.55 168.00 L 610.55 168.00 L 609.02 168.00 L 609.02 538.73 L 595.39 538.73 L 595.39 538.73" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 434.74 108.00 L 434.74 108.00 L 395.37 108.00 L 395.37 334.38 L 356.00 334.38 L 356.00 334.38" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         
-        <path d="M 610.55 168.00 L 610.55 168.00 L 612.23 168.00 L 612.23 439.85 L 356.00 439.85 L 356.00 439.85" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M 563.83 168.00 L 563.83 168.00 L 622.10 168.00 L 622.10 360.52 L 680.36 360.52 L 680.36 360.52" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        
+        <path d="M 680.36 508.52 L 680.36 508.52 L 719.64 508.52 L 719.64 681.47 L 758.91 681.47 L 758.91 681.47" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        
+        <path d="M 202.00 408.38 L 202.00 408.38 L 237.47 408.38 L 237.47 721.99 L 272.94 721.99 L 272.94 721.99" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        
+        <path d="M 202.00 408.38 L 202.00 408.38 L 237.47 408.38 L 237.47 721.99 L 272.94 721.99 L 272.94 721.99" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         
       </svg>
       
-      <div class="node" style="left:481.45px;top:48.00px;width:258.20px;min-height:120.00px;">
-        <div class="node-name">Nuevo nodo</div>
-        <div class="node-title">Cargo</div>
-        <div class="node-area">Área</div>
-        <div class="node-meta">
+      <div class="node node-style-classic" style="left:434.74px;top:48.00px;width:258.20px;min-height:120.00px;background-color:#d41616;color:#ffffff;">
+        <div class="node-name" style="color:#ffffff;">Nuevo nodo</div>
+        <div class="node-title" style="color:#ffffff;opacity:0.9;">Cargo</div>
+        <div class="node-area" style="color:#ffffff;opacity:0.9;">Área</div>
+        <div class="node-meta" style="color:#ffffff;opacity:0.8;">
           
           
           
         </div>
       </div>
       
-      <div class="node" style="left:48.00px;top:365.85px;width:308.00px;min-height:148.00px;">
-        <div class="node-name">Nuevo nodo</div>
-        <div class="node-title">Cargo</div>
-        <div class="node-area">Área</div>
-        <div class="node-meta">
+      <div class="node node-style-classic" style="left:48.00px;top:260.38px;width:308.00px;min-height:148.00px;">
+        <div class="node-name" >Nuevo nodo</div>
+        <div class="node-title" >Cargo</div>
+        <div class="node-area" >Área</div>
+        <div class="node-meta" >
           
           
           
         </div>
       </div>
       
-      <div class="node" style="left:441.39px;top:538.73px;width:308.00px;min-height:148.00px;">
-        <div class="node-name">Nuevo nodo</div>
-        <div class="node-title">Cargo</div>
-        <div class="node-area">Área</div>
-        <div class="node-meta">
+      <div class="node node-style-classic" style="left:526.36px;top:360.52px;width:308.00px;min-height:148.00px;">
+        <div class="node-name" >Nuevo nodo</div>
+        <div class="node-title" >Cargo</div>
+        <div class="node-area" >Área</div>
+        <div class="node-meta" >
           
           
           
         </div>
       </div>
       
-      <div class="node" style="left:838.11px;top:215.22px;width:308.00px;min-height:148.00px;">
-        <div class="node-name">Nuevo nodo</div>
-        <div class="node-title">Cargo</div>
-        <div class="node-area">Área</div>
-        <div class="node-meta">
+      <div class="node node-style-classic" style="left:916.94px;top:133.89px;width:308.00px;min-height:148.00px;">
+        <div class="node-name" >Nuevo nodo</div>
+        <div class="node-title" >Cargo</div>
+        <div class="node-area" >Área</div>
+        <div class="node-meta" >
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="node node-style-classic" style="left:604.91px;top:681.47px;width:308.00px;min-height:148.00px;">
+        <div class="node-name" >Nuevo nodo</div>
+        <div class="node-title" >Cargo</div>
+        <div class="node-area" >Área</div>
+        <div class="node-meta" >
+          
+          
+          
+        </div>
+      </div>
+      
+      <div class="node node-style-classic" style="left:118.94px;top:721.99px;width:308.00px;min-height:148.00px;">
+        <div class="node-name" >Nuevo nodo</div>
+        <div class="node-title" >Cargo</div>
+        <div class="node-area" >Área</div>
+        <div class="node-meta" >
           
           
           

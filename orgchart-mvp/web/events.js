@@ -186,6 +186,12 @@ export function setupEventListeners() {
     const action = actionEl.dataset.inspectorAction;
     const id = state.selectedNodeId;
 
+    if (action === 'clear-color') {
+      updateNode(id, 'color', '');
+      renderAll();
+      return;
+    }
+
     if (action === 'add-child') addNode(id);
     if (action === 'duplicate') duplicateNode(id);
     if (action === 'remove') removeNode(id);
@@ -212,7 +218,7 @@ export function setupEventListeners() {
       return;
     }
 
-    if (!input.dataset.nodeField || !state.selectedNodeId || input.tagName === 'SELECT') return;
+    if (!input.dataset.nodeField || !state.selectedNodeId) return;
 
     if (input.dataset.nodeField === 'width' || input.dataset.nodeField === 'height') {
       const node = state.nodes.find(n => n.id === state.selectedNodeId);
@@ -230,6 +236,23 @@ export function setupEventListeners() {
     }
 
     updateNode(state.selectedNodeId, input.dataset.nodeField, input.value);
+    renderCanvas();
+  });
+
+  // Escucha los cambios "confirmados", como la selección en un <select>
+  dom.inspectorContent.addEventListener('change', e => {
+    const input = e.target;
+
+    // Manejar el cambio de estilo del nodo y el color
+    if (
+      (input.tagName === 'SELECT' || input.type === 'color') &&
+      input.dataset.nodeField &&
+      state.selectedNodeId
+    ) {
+      updateNode(state.selectedNodeId, input.dataset.nodeField, input.value);
+      commitTransientChange(); // Asegura que el cambio se consolide para el guardado
+      renderCanvas();
+    }
   });
 }
 

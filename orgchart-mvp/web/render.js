@@ -223,6 +223,31 @@ export function renderInspector() {
         >
       </label>
 
+      <label>
+        <span>Color de Fondo</span>
+        <div class="color-input-wrapper">
+          <input
+            type="color"
+            value="${esc(node.color || '#ffffff')}"
+            data-node-field="color"
+          >
+          <button type="button" class="clear-color-btn" data-inspector-action="clear-color" title="Restablecer color">
+            ✕
+          </button>
+        </div>
+      </label>
+
+      <label>
+        <span>Diseño del Nodo</span>
+        <select data-node-field="style">
+          <option value="classic" ${!node.style || node.style === 'classic' ? 'selected' : ''}>
+            Clásico (Predeterminado)
+          </option>
+          <option value="default" ${node.style === 'default' ? 'selected' : ''}>Moderno</option>
+          <option value="lined" ${node.style === 'lined' ? 'selected' : ''}>Clásico (Líneas)</option>
+        </select>
+      </label>
+
       <div class="inspector-actions">
         <button
           type="button"
@@ -257,22 +282,61 @@ export function renderCanvas() {
   const stage = dom.chartStage;
   if (!stage) return;
 
-  // Nodos
-  stage.innerHTML = '';
+  // --- Nodos ---
+  // Mantiene un registro de los nodos existentes para evitar recrear el DOM
+  const existingNodeEls = new Map();
+  stage.querySelectorAll('.chart-node').forEach(el => {
+    existingNodeEls.set(el.dataset.id, el);
+  });
 
+  const renderedNodeIds = new Set();
+
+  // Actualiza o crea nodos
   for (const node of state.nodes) {
-    const el = document.createElement('div');
-    el.className = 'chart-node';
-    el.dataset.id = node.id;
+    renderedNodeIds.add(node.id);
+    let el = existingNodeEls.get(node.id);
+
+    if (!el) {
+      // El nodo no existe en el DOM, lo crea
+      el = document.createElement('div');
+      el.className = 'chart-node';
+      el.dataset.id = node.id;
+      stage.appendChild(el);
+    }
+
+    // Actualiza propiedades
     el.style.left = `${node.x}px`;
     el.style.top = `${node.y}px`;
     el.style.width = `${node.width}px`;
     el.style.minHeight = `${node.height}px`;
 
-    if (node.id === state.selectedNodeId) {
-      el.classList.add('selected');
+    if (node.color) {
+      el.style.setProperty('--node-bg-color', node.color);
+      // Lógica de contraste simple para el color del texto
+      const hex = node.color.replace('#', '');
+      if (hex.length === 6) {
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+        el.style.setProperty('--node-text-color', yiq < 128 ? '#ffffff' : 'var(--text)');
+      }
+      el.classList.add('has-custom-color');
+    } else {
+      el.style.removeProperty('--node-bg-color');
+      el.style.removeProperty('--node-text-color');
+      el.classList.remove('has-custom-color');
     }
 
+    const nodeStyle = node.style || 'classic';
+    const styles = ['classic', 'lined'];
+    for (const s of styles) {
+      el.classList.toggle(`node-style-${s}`, s === nodeStyle);
+    }
+
+    el.classList.toggle('selected', node.id === state.selectedNodeId);
+
+    // Actualiza contenido interno (se puede optimizar aún más si es necesario)
     el.innerHTML = `
       <div class="node-head">
         <div>
@@ -322,11 +386,16 @@ export function renderCanvas() {
         data-port="right"
       ></div>
     `;
-
-    stage.appendChild(el);
   }
 
-  // Conectores
+  // Elimina nodos que ya no están en el estado
+  for (const [id, el] of existingNodeEls.entries()) {
+    if (!renderedNodeIds.has(id)) {
+      el.remove();
+    }
+  }
+
+  // --- Conectores ---
   drawConnectors();
 }
 

@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"math"
 	"os"
+	"strconv"
 	"path/filepath"
 	"strings"
 	"time"
@@ -17,12 +18,17 @@ type Exporter struct {
 	tpl        *template.Template
 }
 
+type templateNode struct {
+	models.Node
+	TextColor string
+}
+
 type exportView struct {
 	Company   string
 	UpdatedAt string
 	Width     float64
 	Height    float64
-	Nodes     []models.Node
+	Nodes     []templateNode
 	Links     []exportLink
 }
 
@@ -103,12 +109,30 @@ func buildExportView(chart models.OrgChart) exportView {
 	height := math.Max(1, maxY-minY)
 
 	// Desplazar nodos al origen
-	shiftedNodes := make([]models.Node, 0, len(nodes))
+	shiftedNodes := make([]templateNode, 0, len(nodes))
 	shiftedMap := make(map[string]models.Node, len(nodes))
 	for _, n := range nodes {
 		n.X -= minX
 		n.Y -= minY
-		shiftedNodes = append(shiftedNodes, n)
+
+		tn := templateNode{Node: n}
+		if n.Color != "" {
+			// Lógica de contraste simple para el color del texto
+			hex := strings.TrimPrefix(n.Color, "#")
+			if len(hex) == 6 {
+				r, _ := strconv.ParseInt(hex[0:2], 16, 0)
+				g, _ := strconv.ParseInt(hex[2:4], 16, 0)
+				b, _ := strconv.ParseInt(hex[4:6], 16, 0)
+				yiq := ((float64(r) * 299) + (float64(g) * 587) + (float64(b) * 114)) / 1000
+				if yiq < 128 {
+					tn.TextColor = "#ffffff"
+				} else {
+					tn.TextColor = "#102033"
+				}
+			}
+		}
+
+		shiftedNodes = append(shiftedNodes, tn)
 		shiftedMap[n.ID] = n
 	}
 
@@ -164,7 +188,7 @@ func buildExportView(chart models.OrgChart) exportView {
 		if manualPairs[parent.ID+"|"+n.ID] {
 			continue
 		}
-		path := buildLinkPath(parent, n, "bottom", "top", nil)
+		path := buildLinkPath(parent, n.Node, "bottom", "top", nil)
 		links = append(links, exportLink{
 			ID:        "tree-" + n.ID,
 			Color:     "#94a3b8",
@@ -337,13 +361,27 @@ const htmlTemplate = `<!DOCTYPE html>
       overflow: visible;
     }
     .node {
-      position: absolute;
+      position: absolute;      
+      padding: 14px 16px;
+      overflow: hidden;
+    }
+    .node-style-default {
       background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
       border: 1px solid #dbe3f0;
       border-radius: 14px;
       box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
-      padding: 14px 16px;
-      overflow: hidden;
+    }
+    .node-style-classic {
+      border-radius: 4px;
+      border: 1px solid #102033;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      background: #ffffff;
+    }
+    .node-style-lined {
+      border-radius: 8px;
+      border: 2px dashed #102033;
+      box-shadow: none;
+      background: #f8fbff;
     }
     .node-name { font-size: 0.98rem; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
     .node-title { font-size: 0.82rem; color: #334155; margin-bottom: 2px; }
@@ -368,11 +406,11 @@ const htmlTemplate = `<!DOCTYPE html>
         {{end}}
       </svg>
       {{range .Nodes}}
-      <div class="node" style="left:{{printf "%.2f" .X}}px;top:{{printf "%.2f" .Y}}px;width:{{printf "%.2f" .Width}}px;min-height:{{printf "%.2f" .Height}}px;">
-        <div class="node-name">{{.Name}}</div>
-        <div class="node-title">{{.Title}}</div>
-        {{if .Area}}<div class="node-area">{{.Area}}</div>{{end}}
-        <div class="node-meta">
+      <div class="node node-style-{{if .Style}}{{.Style}}{{else}}classic{{end}}" style="left:{{printf "%.2f" .X}}px;top:{{printf "%.2f" .Y}}px;width:{{printf "%.2f" .Width}}px;min-height:{{printf "%.2f" .Height}}px;{{if .Color}}background-color:{{.Color}};color:{{.TextColor}};{{end}}">
+        <div class="node-name" {{if .TextColor}}style="color:{{.TextColor}};"{{end}}>{{.Name}}</div>
+        <div class="node-title" {{if .TextColor}}style="color:{{.TextColor}};opacity:0.9;"{{end}}>{{.Title}}</div>
+        {{if .Area}}<div class="node-area" {{if .TextColor}}style="color:{{.TextColor}};opacity:0.9;"{{end}}>{{.Area}}</div>{{end}}
+        <div class="node-meta" {{if .TextColor}}style="color:{{.TextColor}};opacity:0.8;"{{end}}>
           {{if .Email}}{{.Email}}{{end}}
           {{if and .Email .Phone}} · {{end}}
           {{if .Phone}}{{.Phone}}{{end}}
