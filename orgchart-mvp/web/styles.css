@@ -143,6 +143,44 @@ label {
   flex-wrap: wrap;
 }
 
+.shapes-toolbar {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Dropdown */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  background-color: var(--surface);
+  min-width: 180px;
+  box-shadow: var(--shadow);
+  z-index: 1;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 8px;
+}
+
+.dropdown.active .dropdown-menu {
+  display: grid;
+  gap: 4px;
+}
+
+.dropdown-menu button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+}
 /* Layout principal */
 
 .layout {
@@ -196,6 +234,65 @@ label {
   margin: 0;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.shape-list {
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: var(--bg);
+  border-radius: 10px;
+}
+
+.shape-item {
+  width: 48px;
+  height: 48px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  transition: all 0.15s ease;
+  font-size: 0;
+  position: relative;
+}
+
+.shape-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--border);
+}
+
+.shape-item::before {
+  content: '';
+  position: absolute;
+  background: var(--muted);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: background-color 0.15s ease;
+}
+
+.shape-item:hover::before {
+  background: var(--text);
+}
+
+.shape-item[data-shape-type="classic"]::before {
+  width: 24px;
+  height: 18px;
+  border-radius: 2px;
+}
+
+.shape-item[data-shape-type="circle"]::before {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.shape-item[data-shape-type="triangle"]::before {
+  width: 24px;
+  height: 20px;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
 }
 
 .button-grid,
@@ -350,6 +447,15 @@ label {
   background: var(--surface-2);
 }
 
+.chart-node.node-style-circle {
+  border-radius: 50%;
+}
+
+.chart-node.node-style-triangle {
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  /* El contenido se centrará, pero puede ser recortado en los bordes. */
+}
+
 /* El color personalizado debe sobreescribir los fondos de los estilos de nodo */
 .chart-node.has-custom-color {
   background: var(--node-bg-color);
@@ -375,6 +481,12 @@ label {
   border-style: solid;
   border-width: 3px;
   box-shadow: 0 0 0 3px var(--accent-2-alpha), 0 8px 20px rgba(37, 99, 235, 0.1);
+}
+
+/* Deshabilita la interacción con los nodos mientras se arrastra una figura,
+   para que el evento 'drop' se dispare en el lienzo y no en un nodo. */
+body.is-dragging-shape .chart-node {
+  pointer-events: none;
 }
 
 .node-head {

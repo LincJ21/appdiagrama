@@ -481,19 +481,30 @@ function movePointer(event) {
 
   if (state.resizeState && event.pointerId === state.resizeState.pointerId) {
     const resize = state.resizeState;
+    const node = state.nodes.find(n => n.id === resize.nodeId);
+    if (!node) return;
+
     const deltaX = (event.clientX - resize.startX) / state.view.scale;
     const deltaY = (event.clientY - resize.startY) / state.view.scale;
 
+    // Para manejar el cambio de tamaño en nodos rotados, convertimos el delta
+    // del ratón (en coordenadas de la pantalla) a las coordenadas locales del nodo.
+    const angle = (node.rotation || 0) * Math.PI / 180;
+    const cos = Math.cos(-angle);
+    const sin = Math.sin(-angle);
+
+    const localDeltaX = deltaX * cos - deltaY * sin;
+    const localDeltaY = deltaX * sin + deltaY * cos;
+
     patchNodeSize(
       resize.nodeId,
-      resize.originWidth + deltaX,
-      resize.originHeight + deltaY
+      resize.originWidth + localDeltaX,
+      resize.originHeight + localDeltaY
     );
 
     updateConnectedLinksForNode(resize.nodeId);
 
     const nodeEl = dom.chartStage.querySelector(`.chart-node[data-id="${resize.nodeId}"]`);
-    const node = state.nodes.find(n => n.id === resize.nodeId);
     if (nodeEl && node) {
       nodeEl.style.width = `${node.width}px`;
       nodeEl.style.minHeight = `${node.height}px`;

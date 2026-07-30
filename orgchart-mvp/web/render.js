@@ -195,6 +195,16 @@ export function renderInspector() {
       </label>
 
       <label>
+        <span>Rotación (°)</span>
+        <input
+          type="number"
+          step="5"
+          value="${node.rotation || 0}"
+          data-node-field="rotation"
+        >
+      </label>
+
+      <label>
         <span>Color de Fondo</span>
         <div class="color-input-wrapper">
           <input
@@ -312,6 +322,7 @@ export function renderCanvas() {
     el.style.top = `${node.y}px`;
     el.style.width = `${node.width}px`;
     el.style.minHeight = `${node.height}px`;
+    el.style.transform = `rotate(${node.rotation || 0}deg)`;
 
     // Estilos de texto
     const textAlign = node.textAlign || 'left';
@@ -344,6 +355,8 @@ export function renderCanvas() {
     el.classList.toggle('node-style-default', nodeStyle === 'default');
     el.classList.toggle('node-style-classic', nodeStyle === 'classic');
     el.classList.toggle('node-style-lined', nodeStyle === 'lined');
+    el.classList.toggle('node-style-circle', nodeStyle === 'circle');
+    el.classList.toggle('node-style-triangle', nodeStyle === 'triangle');
 
     el.classList.toggle('selected', node.id === state.selectedNodeId);
 
@@ -415,22 +428,42 @@ export function applyStageTransform() {
  * Punto de puerto para un nodo y lado.
  */
 export function portPoint(node, side) {
-  const x = node.x;
-  const y = node.y;
-  const w = node.width;
-  const h = node.height;
+  const angle = (node.rotation || 0) * Math.PI / 180;
 
+  // Center of rotation
+  const cx = node.x + node.width / 2;
+  const cy = node.y + node.height / 2;
+
+  // Port position relative to center, before rotation
+  let relX, relY;
   switch (side) {
     case 'top':
-      return { x: x + w / 2, y: y };
+      relX = 0;
+      relY = -node.height / 2;
+      break;
     case 'bottom':
-      return { x: x + w / 2, y: y + h };
+      relX = 0;
+      relY = node.height / 2;
+      break;
     case 'left':
-      return { x: x, y: y + h / 2 };
+      relX = -node.width / 2;
+      relY = 0;
+      break;
     case 'right':
     default:
-      return { x: x + w, y: y + h / 2 };
+      relX = node.width / 2;
+      relY = 0;
+      break;
   }
+
+  // Apply rotation
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const rotX = relX * cos - relY * sin;
+  const rotY = relX * sin + relY * cos;
+
+  // Final absolute position
+  return { x: cx + rotX, y: cy + rotY };
 }
 
 /**

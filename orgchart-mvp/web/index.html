@@ -22,12 +22,25 @@
       <p>Construye y ajusta tu estructura organizacional de forma visual.</p>
     </div>
 
+    <div class="shapes-toolbar">
+      <div id="shapeList" class="shape-list">
+        <div class="shape-item" data-shape-type="classic" draggable="true" title="Arrastrar Rectángulo"></div>
+        <div class="shape-item" data-shape-type="circle" draggable="true" title="Arrastrar Círculo"></div>
+        <div class="shape-item" data-shape-type="triangle" draggable="true" title="Arrastrar Triángulo"></div>
+      </div>
+    </div>
+
     <div class="toolbar-row">
       <button id="themeToggleBtn">Tema</button>
       <button id="saveBtn">Guardar</button>
-      <button id="exportHtmlBtn">Regenerar HTML</button>
-      <button id="exportPdfBtn">Exportar PDF</button>
-      <button id="exportPngBtn">Exportar PNG</button>
+      <div class="dropdown">
+        <button id="exportBtn" class="dropdown-toggle">Exportar ▼</button>
+        <div id="exportMenu" class="dropdown-menu">
+          <button id="exportHtmlBtn">Regenerar HTML</button>
+          <button id="exportPdfBtn">Exportar PDF</button>
+          <button id="exportPngBtn">Exportar PNG</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -105,5 +118,26 @@
       </div>
     </aside>
   </main>
+
+  <script>
+    // Lógica para el menú desplegable de exportación
+    document.addEventListener('DOMContentLoaded', () => {
+      const exportBtn = document.getElementById('exportBtn');
+      if (!exportBtn) return;
+
+      const dropdown = exportBtn.parentElement;
+
+      exportBtn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        dropdown.classList.toggle('active');
+      });
+
+      document.addEventListener('click', () => {
+        if (dropdown.classList.contains('active')) {
+          dropdown.classList.remove('active');
+        }
+      });
+    });
+  </script>
 </body>
 </html>

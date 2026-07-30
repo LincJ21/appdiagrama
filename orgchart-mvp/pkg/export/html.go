@@ -191,16 +191,37 @@ func buildExportView(chart models.OrgChart) exportView {
 }
 
 func portPoint(n models.Node, side string) models.Point {
+	angle := n.Rotation * math.Pi / 180.0
+
+	// Center of rotation
+	cx := n.X + n.Width/2
+	cy := n.Y + n.Height/2
+
+	// Port position relative to center, before rotation
+	var relX, relY float64
 	switch side {
 	case "left":
-		return models.Point{X: n.X, Y: n.Y + n.Height/2}
+		relX = -n.Width / 2
+		relY = 0
 	case "right":
-		return models.Point{X: n.X + n.Width, Y: n.Y + n.Height/2}
+		relX = n.Width / 2
+		relY = 0
 	case "top":
-		return models.Point{X: n.X + n.Width/2, Y: n.Y}
+		relX = 0
+		relY = -n.Height / 2
 	default: // bottom
-		return models.Point{X: n.X + n.Width/2, Y: n.Y + n.Height}
+		relX = 0
+		relY = n.Height / 2
 	}
+
+	// Apply rotation
+	cos := math.Cos(angle)
+	sin := math.Sin(angle)
+	rotX := relX*cos - relY*sin
+	rotY := relX*sin + relY*cos
+
+	// Final absolute position
+	return models.Point{X: cx + rotX, Y: cy + rotY}
 }
 
 func autoSide(a, b models.Node) string {
@@ -373,7 +394,7 @@ const htmlTemplate = `<!DOCTYPE html>
         {{end}}
       </svg>
       {{range .Nodes}}
-      <div class="node node-style-{{if .Style}}{{.Style}}{{else}}classic{{end}}" style="left:{{printf "%.2f" .X}}px;top:{{printf "%.2f" .Y}}px;width:{{printf "%.2f" .Width}}px;min-height:{{printf "%.2f" .Height}}px;{{if .Color}}background-color:{{.Color}};color:{{.TextColor}};{{end}}">
+      <div class="node node-style-{{if .Style}}{{.Style}}{{else}}classic{{end}}" style="left:{{printf "%.2f" .X}}px;top:{{printf "%.2f" .Y}}px;width:{{printf "%.2f" .Width}}px;min-height:{{printf "%.2f" .Height}}px;transform:rotate({{.Rotation}}deg);{{if .Color}}background-color:{{.Color}};color:{{.TextColor}};{{end}}">
         <div class="node-content" style="text-align: {{if .TextAlign}}{{.TextAlign}}{{else}}left{{end}};">
           <div class="node-name" style="color:{{if .TextColor}}{{.TextColor}}{{else}}#0f172a{{end}}; font-weight: {{if eq .FontWeight "bold"}}700{{else}}600{{end}}; font-style: {{if .FontStyle}}{{.FontStyle}}{{else}}normal{{end}}; text-decoration: {{if .TextDecoration}}{{.TextDecoration}}{{else}}none{{end}};">{{.Name}}</div>
         </div>

@@ -123,7 +123,7 @@ export function applyLayout() {
   roots.forEach(root => walk(root, 0));
 }
 
-export function addNode(parentId = '') {
+export function addNode(parentId = '', options = {}) {
   pushHistory();
 
   const parent = parentId ? state.nodes.find(n => n.id === parentId) : null;
@@ -131,14 +131,14 @@ export function addNode(parentId = '') {
   const node = {
     id: uid(),
     parentId: parentId || '',
-    name: 'Nuevo nodo',
+    name: options.name || 'Nuevo nodo',
     employees: '',
-    x: parent ? parent.x : 120,
-    y: parent ? parent.y + (parent.height || NODE_DIMS.height) + 80 : 120,
-    width: NODE_DIMS.width,
-    height: NODE_DIMS.height,
+    x: options.x ?? (parent ? parent.x + 20 : 120),
+    y: options.y ?? (parent ? parent.y + (parent.height || NODE_DIMS.height) + 80 : 120),
+    width: options.width || NODE_DIMS.width,
+    height: options.height || NODE_DIMS.height,
     rotation: 0,
-    style: 'classic',
+    style: options.style || 'classic',
     color: '',
     textAlign: 'left',
     fontWeight: '',
@@ -150,7 +150,10 @@ export function addNode(parentId = '') {
   state.selectedNodeId = node.id;
   state.selectedLinkId = null;
 
-  if (state.autoLayout) applyLayout();
+  // No aplicar auto-layout si se especifica una posición (p. ej. al soltar una figura)
+  if (state.autoLayout && options.x === undefined) {
+    applyLayout();
+  }
   return node;
 }
 

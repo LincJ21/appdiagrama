@@ -1,6 +1,6 @@
 {
   "company": "Mi Organigrama",
-  "updatedAt": "2026-07-30T07:52:04.093915777-05:00",
+  "updatedAt": "2026-07-30T08:25:21.350163969-05:00",
   "nodes": [
     {
       "id": "hhhodkim",
@@ -12,6 +12,7 @@
       "height": 120,
       "rotation": 0,
       "style": "classic",
+      "color": "#a03737",
       "textAlign": "center",
       "fontWeight": "bold"
     },
