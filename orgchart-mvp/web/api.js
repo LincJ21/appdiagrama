@@ -22,6 +22,8 @@ function serializeNodes(nodes) {
     height: Number(n.height) || 148,
     rotation: Number(n.rotation) || 0,
     style: n.style || 'classic',
+    bgColor: n.bgColor,
+    bgOpacity: n.bgOpacity,
     color: n.color || '',
     textAlign: n.textAlign || 'left',
     fontWeight: n.fontWeight || '',

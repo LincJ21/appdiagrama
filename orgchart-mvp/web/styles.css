@@ -1,14 +1,14 @@
 :root {
-  --bg: #f4f7fb;
+  --bg: #f0f9ff;
   --surface: #ffffff;
   --surface-2: #f8fbff;
-  --border: #d7e0ea;
-  --border-strong: #c2cfdb;
-  --text: #102033;
-  --muted: #5f738a;
-  --accent: #0f766e;
-  --accent-2: #2563eb;
-  --accent-2-alpha: rgba(37, 99, 235, 0.1);
+  --border: #bae6fd;
+  --border-strong: #7dd3fc;
+  --text: #0c4a6e;
+  --muted: #475569;
+  --accent: #0ea5e9;
+  --accent-2: #0284c7;
+  --accent-2-alpha: rgba(2, 132, 199, 0.1);
   --danger: #b91c1c;
   --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
   --shadow-topbar: 0 2px 8px rgba(15, 23, 42, 0.04);
@@ -19,16 +19,16 @@
 }
 
 [data-theme="dark"] {
-  --bg: #0f172a;
-  --surface: #111827;
-  --surface-2: #162032;
-  --border: #243248;
-  --border-strong: #33475f;
+  --bg: #082f49;
+  --surface: #0c4a6e;
+  --surface-2: #075985;
+  --border: #0369a1;
+  --border-strong: #0284c7;
   --text: #edf2f7;
   --muted: #94a3b8;
-  --accent: #14b8a6;
-  --accent-2: #60a5fa;
-  --accent-2-alpha: rgba(96, 165, 250, 0.15);
+  --accent: #38bdf8;
+  --accent-2: #7dd3fc;
+  --accent-2-alpha: rgba(125, 211, 252, 0.15);
   --danger: #ef4444;
   --shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
   --shadow-topbar: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -295,6 +295,18 @@ label {
   clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
 }
 
+.shape-item[data-shape-type="rhombus"]::before {
+  width: 20px;
+  height: 20px;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+.shape-item[data-shape-type="hexagon"]::before {
+  width: 22px;
+  height: 20px;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
 .button-grid,
 .stats-grid,
 .inspector-actions,
@@ -452,8 +464,28 @@ label {
 }
 
 .chart-node.node-style-triangle {
+  background: var(--surface);
+  border: none !important;
   clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-  /* El contenido se centrará, pero puede ser recortado en los bordes. */
+  padding: 40px 10px 10px;
+}
+
+.chart-node.node-style-rhombus {
+  background: var(--surface);
+  border: none !important;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.chart-node.node-style-hexagon {
+  background: var(--surface);
+  border: none !important;
+  clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+  padding: 20px 40px;
 }
 
 /* El color personalizado debe sobreescribir los fondos de los estilos de nodo */

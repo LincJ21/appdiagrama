@@ -205,25 +205,31 @@ export function renderInspector() {
       </label>
 
       <label>
-        <span>Color de Fondo</span>
-        <div class="color-input-wrapper">
+        <span>Color de Fondo y Opacidad</span>
+        <div class="flex gap-2">
           <input
             type="color"
-            value="${esc(node.color || '#ffffff')}"
-            data-node-field="color"
+            value="${esc(node.bgColor || '#ffffff')}"
+            data-node-field="bgColor"
+            class="h-8 w-1/2 p-0 border-0 rounded cursor-pointer bg-transparent"
           >
-          <button type="button" class="clear-color-btn" data-inspector-action="clear-color" title="Restablecer color">
-            ✕
-          </button>
+          <select data-node-field="bgOpacity" class="w-1/2">
+            <option value="1" ${(!node.bgOpacity || node.bgOpacity === '1') ? 'selected' : ''}>Sólido</option>
+            <option value="0.75" ${node.bgOpacity === '0.75' ? 'selected' : ''}>Transparente (75%)</option>
+            <option value="0.5" ${node.bgOpacity === '0.5' ? 'selected' : ''}>Cristal (50%)</option>
+            <option value="0" ${node.bgOpacity === '0' ? 'selected' : ''}>Oculto (0%)</option>
+          </select>
         </div>
       </label>
 
       <label>
         <span>Diseño del Nodo</span>
         <select data-node-field="style">
-          <option value="classic" ${!node.style || node.style === 'classic' ? 'selected' : ''}>
-            Clásico (Predeterminado)
-          </option>
+          <option value="classic" ${!node.style || node.style === 'classic' ? 'selected' : ''}>Rectángulo</option>
+          <option value="circle" ${node.style === 'circle' ? 'selected' : ''}>Círculo</option>
+          <option value="triangle" ${node.style === 'triangle' ? 'selected' : ''}>Triángulo</option>
+          <option value="rhombus" ${node.style === 'rhombus' ? 'selected' : ''}>Rombo</option>
+          <option value="hexagon" ${node.style === 'hexagon' ? 'selected' : ''}>Hexágono</option>
           <option value="default" ${node.style === 'default' ? 'selected' : ''}>Moderno</option>
           <option value="lined" ${node.style === 'lined' ? 'selected' : ''}>Clásico (Líneas)</option>
         </select>
@@ -351,12 +357,52 @@ export function renderCanvas() {
       el.classList.remove('has-custom-color');
     }
 
+
+    // Efectos de color de fondo y opacidad
+    const bgColor = node.bgColor || 'var(--surface)';
+    const bgOpacity = node.bgOpacity !== undefined ? parseFloat(node.bgOpacity) : 1.0;
+
+    if (bgColor.startsWith('var')) {
+       el.style.backgroundColor = bgColor;
+       el.style.opacity = bgOpacity;
+       el.style.color = 'var(--text)'; // Default
+    } else {
+       el.style.backgroundColor = bgColor;
+
+       if (bgOpacity < 1) {
+           el.style.backgroundColor = `${bgColor}${Math.round(bgOpacity * 255).toString(16).padStart(2, '0')}`;
+           if (bgOpacity > 0 && bgOpacity < 1) {
+               el.style.backdropFilter = 'blur(8px)';
+           } else {
+               el.style.backdropFilter = 'none';
+           }
+       } else {
+           el.style.backdropFilter = 'none';
+       }
+
+       // Simple contrast detection for text
+       const hex = bgColor.replace('#', '');
+       const r = parseInt(hex.substr(0, 2), 16) || 255;
+       const g = parseInt(hex.substr(2, 2), 16) || 255;
+       const b = parseInt(hex.substr(4, 2), 16) || 255;
+       const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+
+       // Apply only if opacity is high enough to affect legibility significantly
+       if (bgOpacity > 0.4) {
+           el.style.color = (yiq >= 128) ? '#0f172a' : '#f8fafc';
+       } else {
+           el.style.color = 'var(--text)';
+       }
+    }
+
     const nodeStyle = node.style || 'classic'; // default, classic, lined
     el.classList.toggle('node-style-default', nodeStyle === 'default');
     el.classList.toggle('node-style-classic', nodeStyle === 'classic');
     el.classList.toggle('node-style-lined', nodeStyle === 'lined');
     el.classList.toggle('node-style-circle', nodeStyle === 'circle');
     el.classList.toggle('node-style-triangle', nodeStyle === 'triangle');
+    el.classList.toggle('node-style-rhombus', nodeStyle === 'rhombus');
+    el.classList.toggle('node-style-hexagon', nodeStyle === 'hexagon');
 
     el.classList.toggle('selected', node.id === state.selectedNodeId);
 

@@ -39,7 +39,7 @@ export function setupShapeDragAndDrop() {
       x: finalX,
       y: finalY,
       width: NODE_DIMS.width,
-      height: shapeType === 'circle' ? NODE_DIMS.width : NODE_DIMS.height,
+      height: (shapeType === 'circle' || shapeType === 'rhombus') ? NODE_DIMS.width : NODE_DIMS.height,
     });
 
     renderAll();
@@ -94,7 +94,7 @@ export function setupShapeDragAndDrop() {
       y: finalY,
       width: NODE_DIMS.width,
       // Para un círculo, forzamos que sea un cuadrado para que se vea redondo
-      height: shapeType === 'circle' ? NODE_DIMS.width : NODE_DIMS.height,
+      height: (shapeType === 'circle' || shapeType === 'rhombus') ? NODE_DIMS.width : NODE_DIMS.height,
     });
 
     renderAll();
