@@ -34,6 +34,13 @@ export function setupShapeDragAndDrop() {
     const finalX = canvasX - NODE_DIMS.width / 2;
     const finalY = canvasY - NODE_DIMS.height / 2;
 
+    // Si auto layout está encendido, lo apagamos para que la figura no salga volando y se pueda arrastrar libremente
+    if (state.autoLayout) {
+        state.autoLayout = false;
+        const btn = document.getElementById('autoLayoutBtn');
+        if (btn) btn.innerHTML = btn.innerHTML.replace('ON', 'OFF');
+    }
+
     addNode('', {
       style: shapeType,
       x: finalX,
@@ -87,6 +94,13 @@ export function setupShapeDragAndDrop() {
     // Centrar la figura en el cursor
     const finalX = canvasX - NODE_DIMS.width / 2;
     const finalY = canvasY - NODE_DIMS.height / 2;
+
+    // Si auto layout está encendido, lo apagamos para que la figura no salga volando y se pueda arrastrar libremente
+    if (state.autoLayout) {
+        state.autoLayout = false;
+        const btn = document.getElementById('autoLayoutBtn');
+        if (btn) btn.innerHTML = btn.innerHTML.replace('ON', 'OFF');
+    }
 
     addNode('', {
       style: shapeType,
