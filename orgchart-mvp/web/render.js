@@ -27,9 +27,9 @@ export function renderNodeList() {
   const term = state.searchTerm;
   const nodes = state.nodes.filter(node => {
     if (!term) return true;
-    return [node.name, node.title, node.area].some(v =>
-      String(v || '').toLowerCase().includes(term)
-    );
+    return String(node.name || '')
+      .toLowerCase()
+      .includes(term);
   });
 
   dom.nodeList.innerHTML = nodes
@@ -41,8 +41,6 @@ export function renderNodeList() {
         data-select-node="${esc(node.id)}"
       >
         <strong>${esc(node.name || 'Sin nombre')}</strong>
-        <span>${esc(node.title || 'Sin cargo')}</span>
-        <small>${esc(node.area || '')}</small>
       </button>
     `
     )
@@ -166,39 +164,12 @@ export function renderInspector() {
       </label>
 
       <label>
-        <span>Cargo</span>
-        <input
-          type="text"
-          value="${esc(node.title || '')}"
-          data-node-field="title"
-        >
-      </label>
-
-      <label>
-        <span>Área</span>
-        <input
-          type="text"
-          value="${esc(node.area || '')}"
-          data-node-field="area"
-        >
-      </label>
-
-      <label>
-        <span>Email</span>
-        <input
-          type="email"
-          value="${esc(node.email || '')}"
-          data-node-field="email"
-        >
-      </label>
-
-      <label>
-        <span>Teléfono</span>
-        <input
-          type="text"
-          value="${esc(node.phone || '')}"
-          data-node-field="phone"
-        >
+        <span>Empleados (opcional)</span>
+        <textarea
+          rows="3"
+          data-node-field="employees"
+          placeholder="Nombres de los empleados en este puesto..."
+        >${esc(node.employees || '')}</textarea>
       </label>
 
       <label>
@@ -381,8 +352,6 @@ export function renderCanvas() {
       <div class="node-head">
         <div class="node-content">
           <h3>${esc(node.name || 'Sin nombre')}</h3>
-          <p>${esc(node.title || 'Sin cargo')}</p>
-          <small>${esc(node.area || '')}</small>
         </div>
         <div class="node-actions">
           <button

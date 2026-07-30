@@ -55,7 +55,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -80,7 +81,8 @@ button:active {
   box-shadow: none;
 }
 
-input {
+input,
+textarea {
   width: 100%;
   border: 1px solid var(--border);
   background: var(--surface);
@@ -88,9 +90,11 @@ input {
   border-radius: 8px;
   padding: 10px 12px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  resize: vertical;
 }
 
-input:focus {
+input:focus,
+textarea:focus {
   outline: none;
   border-color: var(--accent-2);
   box-shadow: 0 0 0 2px var(--accent-2-alpha);
@@ -317,10 +321,13 @@ label {
   position: absolute;
   padding: 16px;
   border-radius: 12px;
-  border: 1px solid var(--border);
+  border: 3px solid var(--border);
   background: var(--surface);
   box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chart-node.selected {
@@ -331,14 +338,14 @@ label {
 /* Estilos de nodo alternativos */
 .chart-node.node-style-classic {
   border-radius: 4px;
-  border: 1px solid var(--text);
+  border: 3px solid var(--text);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   background: var(--surface);
 }
 
 .chart-node.node-style-lined {
   border-radius: 8px;
-  border: 2px dashed var(--text);
+  border: 4px dashed var(--text);
   box-shadow: none;
   background: var(--surface-2);
 }
@@ -366,14 +373,14 @@ label {
 .chart-node.node-style-lined.selected {
   border-color: var(--accent-2);
   border-style: solid;
-  border-width: 1px;
+  border-width: 3px;
   box-shadow: 0 0 0 3px var(--accent-2-alpha), 0 8px 20px rgba(37, 99, 235, 0.1);
 }
 
 .node-head {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  width: 100%;
 }
 
 .node-content {
@@ -404,7 +411,7 @@ label {
 
 .node-head h3 {
   margin: 0 0 4px;
-  font-size: 18px;
+  font-size: 22px;
 }
 
 .node-head p,
@@ -415,6 +422,9 @@ label {
 }
 
 .node-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
   display: flex;
   gap: 6px;
 }

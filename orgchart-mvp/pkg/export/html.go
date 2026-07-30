@@ -170,33 +170,6 @@ func buildExportView(chart models.OrgChart) exportView {
 		})
 	}
 
-	// 2) Enlaces jerárquicos parent→child (solo si no hay link manual entre ellos)
-	manualPairs := map[string]bool{}
-	for _, l := range chart.Links {
-		manualPairs[l.FromID+"|"+l.ToID] = true
-		manualPairs[l.ToID+"|"+l.FromID] = true
-	}
-
-	for _, n := range shiftedNodes {
-		if n.ParentID == "" {
-			continue
-		}
-		parent, ok := shiftedMap[n.ParentID]
-		if !ok {
-			continue
-		}
-		if manualPairs[parent.ID+"|"+n.ID] {
-			continue
-		}
-		path := buildLinkPath(parent, n.Node, "bottom", "top", nil)
-		links = append(links, exportLink{
-			ID:        "tree-" + n.ID,
-			Color:     "#94a3b8",
-			Thickness: 2,
-			Path:      path,
-		})
-	}
-
 	updated := chart.UpdatedAt
 	if updated.IsZero() {
 		updated = time.Now()
@@ -335,9 +308,6 @@ const htmlTemplate = `<!DOCTYPE html>
       color: #111827;
       padding: 24px;
     }
-    .header { margin-bottom: 16px; }
-    .header h1 { font-size: 1.35rem; font-weight: 700; margin-bottom: 4px; }
-    .header p { font-size: 0.85rem; color: #6b7280; }
     .board-wrap {
       display: inline-block;
       background: #fff;
@@ -364,30 +334,30 @@ const htmlTemplate = `<!DOCTYPE html>
       position: absolute;      
       padding: 14px 16px;
       overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .node-style-default {
       background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-      border: 1px solid #dbe3f0;
+      border: 3px solid #dbe3f0;
       border-radius: 14px;
       box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
     }
     .node-style-classic {
       border-radius: 4px;
-      border: 1px solid #102033;
+      border: 3px solid #102033;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       background: #ffffff;
     }
     .node-style-lined {
       border-radius: 8px;
-      border: 2px dashed #102033;
+      border: 4px dashed #102033;
       box-shadow: none;
       background: #f8fbff;
     }
     .node-content { width: 100%; }
-    .node-name { font-size: 1.1rem; margin-bottom: 4px; }
-    .node-title { font-size: 0.9rem; margin-bottom: 2px; }
-    .node-area { font-size: 0.8rem; margin-bottom: 6px; }
-    .node-meta { font-size: 0.72rem; color: #94a3b8; line-height: 1.35; }
+    .node-name { font-size: 1.4rem; margin-bottom: 4px; }
     @media print {
       body { background: #fff; padding: 0; }
       .board-wrap { border: none; box-shadow: none; border-radius: 0; }
@@ -395,10 +365,6 @@ const htmlTemplate = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>{{.Company}}</h1>
-    <p>Actualizado: {{.UpdatedAt}} · {{printf "%.0f" .Width}} × {{printf "%.0f" .Height}} px</p>
-  </div>
   <div class="board-wrap">
     <div class="board">
       <svg class="connectors" viewBox="0 0 {{printf "%.0f" .Width}} {{printf "%.0f" .Height}}" xmlns="http://www.w3.org/2000/svg">
@@ -410,13 +376,6 @@ const htmlTemplate = `<!DOCTYPE html>
       <div class="node node-style-{{if .Style}}{{.Style}}{{else}}classic{{end}}" style="left:{{printf "%.2f" .X}}px;top:{{printf "%.2f" .Y}}px;width:{{printf "%.2f" .Width}}px;min-height:{{printf "%.2f" .Height}}px;{{if .Color}}background-color:{{.Color}};color:{{.TextColor}};{{end}}">
         <div class="node-content" style="text-align: {{if .TextAlign}}{{.TextAlign}}{{else}}left{{end}};">
           <div class="node-name" style="color:{{if .TextColor}}{{.TextColor}}{{else}}#0f172a{{end}}; font-weight: {{if eq .FontWeight "bold"}}700{{else}}600{{end}}; font-style: {{if .FontStyle}}{{.FontStyle}}{{else}}normal{{end}}; text-decoration: {{if .TextDecoration}}{{.TextDecoration}}{{else}}none{{end}};">{{.Name}}</div>
-          <div class="node-title" style="color:{{if .TextColor}}{{.TextColor}}{{else}}#334155{{end}}; opacity: 0.9; font-weight: {{if .FontWeight}}{{.FontWeight}}{{else}}normal{{end}}; font-style: {{if .FontStyle}}{{.FontStyle}}{{else}}normal{{end}}; text-decoration: {{if .TextDecoration}}{{.TextDecoration}}{{else}}none{{end}};">{{.Title}}</div>
-          {{if .Area}}<div class="node-area" style="color:{{if .TextColor}}{{.TextColor}}{{else}}#64748b{{end}}; opacity: 0.9; font-weight: {{if .FontWeight}}{{.FontWeight}}{{else}}normal{{end}}; font-style: {{if .FontStyle}}{{.FontStyle}}{{else}}normal{{end}}; text-decoration: {{if .TextDecoration}}{{.TextDecoration}}{{else}}none{{end}};">{{.Area}}</div>{{end}}
-          <div class="node-meta" style="color:{{if .TextColor}}{{.TextColor}}{{else}}#94a3b8{{end}}; opacity: 0.8;">
-            {{if .Email}}{{.Email}}{{end}}
-            {{if and .Email .Phone}} · {{end}}
-            {{if .Phone}}{{.Phone}}{{end}}
-          </div>
         </div>
       </div>
       {{end}}

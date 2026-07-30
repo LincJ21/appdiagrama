@@ -68,10 +68,7 @@ export function normalizeState(data = {}) {
         id: node.id || uid(),
         parentId: node.parentId || '',
         name: node.name || 'Nuevo nodo',
-        title: node.title || '',
-        area: node.area || '',
-        email: node.email || '',
-        phone: node.phone || '',
+        employees: node.employees || '',
         // Respeta posiciones guardadas
         x: hasX ? toNumber(node.x, index * HORIZONTAL_SPACING) : index * HORIZONTAL_SPACING,
         y: hasY ? toNumber(node.y, 80) : 80,
@@ -135,10 +132,7 @@ export function addNode(parentId = '') {
     id: uid(),
     parentId: parentId || '',
     name: 'Nuevo nodo',
-    title: 'Cargo',
-    area: 'Área',
-    email: '',
-    phone: '',
+    employees: '',
     x: parent ? parent.x : 120,
     y: parent ? parent.y + (parent.height || NODE_DIMS.height) + 80 : 120,
     width: NODE_DIMS.width,
@@ -275,6 +269,14 @@ export function importChart(payload) {
 export function addLink(fromId, toId) {
   pushHistory();
 
+  // Al crear un enlace manual, se asume una nueva relación jerárquica.
+  // Se actualiza el `parentId` del nodo de destino para evitar conectores duplicados
+  // al exportar, asegurando que solo haya una fuente de verdad para la jerarquía.
+  const toNode = state.nodes.find(n => n.id === toId);
+  if (toNode) {
+    toNode.parentId = fromId;
+  }
+
   const link = {
     id: uid(),
     fromId,
@@ -287,7 +289,7 @@ export function addLink(fromId, toId) {
     toSide: '',
     fromOffset: 0,
     toOffset: 0,
-    manual: false,
+    manual: true,
   };
 
   state.links.push(link);

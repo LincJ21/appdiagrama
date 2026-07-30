@@ -185,7 +185,6 @@ export function setupEventListeners() {
         link.points = [];
         link.fromSide = '';
         link.toSide = '';
-        link.manual = false;
         commitTransientChange();
         renderAll();
         setStatus('Ruta restablecida.', 'success');

@@ -15,10 +15,7 @@ function serializeNodes(nodes) {
     id: n.id,
     parentId: n.parentId || '',
     name: n.name || '',
-    title: n.title || '',
-    area: n.area || '',
-    email: n.email || '',
-    phone: n.phone || '',
+    employees: n.employees || '',
     x: Number(n.x) || 0,
     y: Number(n.y) || 0,
     width: Number(n.width) || 308,
@@ -364,6 +361,9 @@ function buildCleanExportRoot(background) {
       'padding:14px 16px',
       'overflow:hidden',
       'color:#0f172a',
+      'display:flex',
+      'align-items:center',
+      'justify-content:center',
     ];
 
     if (n.color) {
@@ -394,26 +394,21 @@ function buildCleanExportRoot(background) {
     // Aplicar bordes y sombras según el estilo, independientemente del color de fondo
     const style = n.style || 'classic';
     if (style === 'classic')
-      css.push('border-radius:4px', 'border:1px solid #102033', 'box-shadow:0 1px 3px rgba(0, 0, 0, 0.05)');
+      css.push('border-radius:4px', 'border:3px solid #102033', 'box-shadow:0 1px 3px rgba(0, 0, 0, 0.05)');
     else if (style === 'lined')
-      css.push('border-radius:8px', 'border:2px dashed #102033', 'box-shadow:none');
+      css.push('border-radius:8px', 'border:4px dashed #102033', 'box-shadow:none');
     else
-      css.push('border:1px solid #dbe3f0', 'border-radius:14px', 'box-shadow:0 6px 16px rgba(15,23,42,0.08)');
+      css.push('border:3px solid #dbe3f0', 'border-radius:14px', 'box-shadow:0 6px 16px rgba(15,23,42,0.08)');
 
     el.style.cssText = css.join(';');
 
     const textStyles = `text-align: ${n.textAlign || 'left'};`;
-    const titleStyles = `font-size:18px; font-weight:${n.fontWeight === 'bold' ? '700' : '600'}; font-style:${n.fontStyle || 'normal'}; text-decoration:${n.textDecoration || 'none'}; margin-bottom:4px; line-height:1.25;`;
+    const titleStyles = `font-size:22px; font-weight:${n.fontWeight === 'bold' ? '700' : '600'}; font-style:${n.fontStyle || 'normal'}; text-decoration:${n.textDecoration || 'none'}; margin-bottom:4px; line-height:1.25;`;
     const otherTextStyles = `font-weight:${n.fontWeight || 'normal'}; font-style:${n.fontStyle || 'normal'}; text-decoration:${n.textDecoration || 'none'};`;
 
     el.innerHTML = `
       <div class="node-content" style="${textStyles}">
         <div style="${titleStyles}">${esc(n.name || '')}</div>
-        <div style="font-size:14px; color:#334155; margin-bottom:2px; ${otherTextStyles}">${esc(n.title || '')}</div>
-        ${n.area ? `<div style="font-size:12px; color:#64748b; margin-bottom:6px; ${otherTextStyles}">${esc(n.area)}</div>` : ''}
-        <div style="font-size:11px; color:#94a3b8; line-height:1.35;">
-          ${esc(n.email || '')}${n.email && n.phone ? ' · ' : ''}${esc(n.phone || '')}
-        </div>
       </div>
     `;
     root.appendChild(el);

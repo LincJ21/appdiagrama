@@ -13,10 +13,7 @@ type Node struct {
 	ID       string  `json:"id"`
 	ParentID string  `json:"parentId"`
 	Name     string  `json:"name"`
-	Title    string  `json:"title"`
-	Area     string  `json:"area"`
-	Email    string  `json:"email"`
-	Phone    string  `json:"phone"`
+	Employees string  `json:"employees,omitempty"`
 	X        float64 `json:"x"`
 	Y        float64 `json:"y"`
 	Width    float64 `json:"width"`
