@@ -221,7 +221,8 @@ export function setupEventListeners() {
   dom.inspectorContent.addEventListener('input', e => {
     const input = e.target;
     // Los cambios de color y select se manejan en el evento 'change' para confirmar el valor final.
-    if (input.type === 'color' || input.tagName === 'SELECT') return;
+    if (input.type === 'color' && e.type === 'input') return; // wait for change
+    if (input.tagName === 'SELECT' && e.type === 'input') return; // wait for change
 
     if (input.dataset.linkField && state.selectedLinkId) {
       const link = state.links.find(item => item.id === state.selectedLinkId);
@@ -240,6 +241,13 @@ export function setupEventListeners() {
     }
 
     if (!input.dataset.nodeField || !state.selectedNodeId) return;
+
+    if (input.dataset.nodeField === 'bgColor' || input.dataset.nodeField === 'bgOpacity') {
+      updateNode(state.selectedNodeId, input.dataset.nodeField, input.value);
+      renderCanvas();
+      return;
+    }
+
 
     if (input.dataset.nodeField === 'width' || input.dataset.nodeField === 'height') {
       const node = state.nodes.find(n => n.id === state.selectedNodeId);
