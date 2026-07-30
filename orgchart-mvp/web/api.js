@@ -210,18 +210,6 @@ function pointsToPath(points) {
   return d;
 }
 
-function hierarchicalRoute(parent, child) {
-  const start = portPoint(parent, 'bottom');
-  const end = portPoint(child, 'top');
-  const midY = start.y + (end.y - start.y) / 2;
-  return [
-    start,
-    { x: start.x, y: midY },
-    { x: end.x, y: midY },
-    end,
-  ];
-}
-
 function esc(value = '') {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -248,17 +236,6 @@ function getWorkingBounds() {
     const to = byId.get(link.toId);
     if (!from || !to) continue;
     for (const p of fullRoute(link, from, to)) {
-      xs.push(p.x);
-      ys.push(p.y);
-    }
-  }
-
-  // rutas jerárquicas
-  for (const n of state.nodes) {
-    if (!n.parentId) continue;
-    const parent = byId.get(n.parentId);
-    if (!parent) continue;
-    for (const p of hierarchicalRoute(parent, n)) {
       xs.push(p.x);
       ys.push(p.y);
     }
@@ -322,22 +299,7 @@ function buildCleanExportRoot(background) {
     svg.appendChild(path);
   };
 
-  // jerárquicas
-  const manualPairs = new Set();
-  for (const l of state.links) {
-    manualPairs.add(`${l.fromId}|${l.toId}`);
-    manualPairs.add(`${l.toId}|${l.fromId}`);
-  }
-
-  for (const n of state.nodes) {
-    if (!n.parentId) continue;
-    const parent = byId.get(n.parentId);
-    if (!parent) continue;
-    if (manualPairs.has(`${parent.id}|${n.id}`)) continue;
-    addPath(hierarchicalRoute(parent, n), '#94a3b8', 2);
-  }
-
-  // manuales
+  // Dibuja solo los conectores manuales (los que están en state.links)
   for (const link of state.links) {
     const from = byId.get(link.fromId);
     const to = byId.get(link.toId);
