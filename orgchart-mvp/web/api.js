@@ -48,6 +48,7 @@ function serializeLinks(links) {
     fromOffset: Number(l.fromOffset) || 0,
     toOffset: Number(l.toOffset) || 0,
     manual: !!l.manual,
+    label: l.label || '',
   }));
 }
 
@@ -141,7 +142,7 @@ function portPoint(node, side) {
   if (side === 'left') return { x, y: y + h / 2 };
   if (side === 'right') return { x: x + w, y: y + h / 2 };
   if (side === 'top') return { x: x + w / 2, y };
-  return { x: x + w / 2, y: y + h }; // bottom
+  return { x: x + w / 2, y: y + h };
 }
 
 function autoSide(a, b) {
@@ -230,7 +231,6 @@ function getWorkingBounds() {
     ys.push(Number(n.y) || 0, (Number(n.y) || 0) + h);
   }
 
-  // rutas manuales
   for (const link of state.links) {
     const from = byId.get(link.fromId);
     const to = byId.get(link.toId);
@@ -259,10 +259,6 @@ function getWorkingBounds() {
   };
 }
 
-/**
- * Construye un DOM limpio SOLO con nodos + líneas.
- * Sin handles, puertos, botones ni selección.
- */
 function buildCleanExportRoot(background) {
   const bounds = getWorkingBounds();
   const byId = new Map(state.nodes.map(n => [n.id, n]));
@@ -278,7 +274,6 @@ function buildCleanExportRoot(background) {
     'box-sizing:border-box',
   ].join(';');
 
-  // SVG de líneas
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS, 'svg');
   svg.setAttribute('width', String(bounds.width));
@@ -286,9 +281,25 @@ function buildCleanExportRoot(background) {
   svg.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`);
   svg.style.cssText = 'position:absolute;left:0;top:0;overflow:visible;';
 
+  // Arrow marker
+  const defs = document.createElementNS(svgNS, 'defs');
+  const marker = document.createElementNS(svgNS, 'marker');
+  marker.setAttribute('id', 'exp-arrowhead');
+  marker.setAttribute('markerWidth', '10');
+  marker.setAttribute('markerHeight', '7');
+  marker.setAttribute('refX', '9');
+  marker.setAttribute('refY', '3.5');
+  marker.setAttribute('orient', 'auto');
+  const poly = document.createElementNS(svgNS, 'polygon');
+  poly.setAttribute('points', '0 0, 10 3.5, 0 7');
+  poly.setAttribute('fill', '#111827');
+  marker.appendChild(poly);
+  defs.appendChild(marker);
+  svg.appendChild(defs);
+
   const shift = pts => pts.map(p => ({ x: p.x - bounds.minX, y: p.y - bounds.minY }));
 
-  const addPath = (points, color, thickness) => {
+  const addPath = (points, color, thickness, label) => {
     const path = document.createElementNS(svgNS, 'path');
     path.setAttribute('d', pointsToPath(shift(points)));
     path.setAttribute('fill', 'none');
@@ -296,20 +307,32 @@ function buildCleanExportRoot(background) {
     path.setAttribute('stroke-width', String(thickness));
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('marker-end', 'url(#exp-arrowhead)');
     svg.appendChild(path);
+
+    if (label) {
+      const mid = points[Math.floor(points.length / 2)];
+      const text = document.createElementNS(svgNS, 'text');
+      text.setAttribute('x', mid.x - bounds.minX);
+      text.setAttribute('y', mid.y - bounds.minY - 8);
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('font-size', '12');
+      text.setAttribute('fill', '#475569');
+      text.setAttribute('font-family', 'Inter, sans-serif');
+      text.textContent = label;
+      svg.appendChild(text);
+    }
   };
 
-  // Dibuja solo los conectores manuales (los que están en state.links)
   for (const link of state.links) {
     const from = byId.get(link.fromId);
     const to = byId.get(link.toId);
     if (!from || !to) continue;
-    addPath(fullRoute(link, from, to), link.color || '#111827', Number(link.thickness) || 2);
+    addPath(fullRoute(link, from, to), link.color || '#111827', Number(link.thickness) || 2, link.label);
   }
 
   root.appendChild(svg);
 
-  // nodos limpios
   for (const n of state.nodes) {
     const el = document.createElement('div');
     const w = Number(n.width) || 308;
@@ -330,9 +353,9 @@ function buildCleanExportRoot(background) {
       'justify-content:center',
     ];
 
-    if (n.color) {
-      css.push(`background:${esc(n.color)}`);
-      const hex = n.color.replace('#', '');
+    if (n.bgColor && n.bgColor !== 'var(--surface)') {
+      css.push(`background:${esc(n.bgColor)}`);
+      const hex = n.bgColor.replace('#', '');
       if (hex.length === 6) {
         const r = parseInt(hex.substring(0, 2), 16);
         const g = parseInt(hex.substring(2, 4), 16);
@@ -343,24 +366,23 @@ function buildCleanExportRoot(background) {
     } else {
       const style = n.style || 'classic';
       switch (style) {
-        case 'classic':
-          css.push('background:#ffffff');
-          break;
-        case 'lined':
-          css.push('background:#f8fbff');
-          break;
-        default: // 'default'
-          css.push('background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)');
-          break;
+        case 'classic': css.push('background:#ffffff'); break;
+        case 'lined': css.push('background:#f8fbff'); break;
+        default: css.push('background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)'); break;
       }
     }
 
-    // Aplicar bordes y sombras según el estilo, independientemente del color de fondo
     const style = n.style || 'classic';
     if (style === 'classic')
       css.push('border-radius:4px', 'border:3px solid #102033', 'box-shadow:0 1px 3px rgba(0, 0, 0, 0.05)');
     else if (style === 'lined')
       css.push('border-radius:8px', 'border:4px dashed #102033', 'box-shadow:none');
+    else if (style === 'circle')
+      css.push('border-radius:50%', 'border:3px solid #102033');
+    else if (style === 'pill')
+      css.push('border-radius:999px', 'border:3px solid #102033');
+    else if (style === 'rounded')
+      css.push('border-radius:16px', 'border:3px solid #102033', 'box-shadow:0 4px 12px rgba(0,0,0,0.08)');
     else
       css.push('border:3px solid #dbe3f0', 'border-radius:14px', 'box-shadow:0 6px 16px rgba(15,23,42,0.08)');
 
@@ -368,11 +390,11 @@ function buildCleanExportRoot(background) {
 
     const textStyles = `text-align: ${n.textAlign || 'left'};`;
     const titleStyles = `font-size:22px; font-weight:${n.fontWeight === 'bold' ? '700' : '600'}; font-style:${n.fontStyle || 'normal'}; text-decoration:${n.textDecoration || 'none'}; margin-bottom:4px; line-height:1.25;`;
-    const otherTextStyles = `font-weight:${n.fontWeight || 'normal'}; font-style:${n.fontStyle || 'normal'}; text-decoration:${n.textDecoration || 'none'};`;
 
     el.innerHTML = `
       <div class="node-content" style="${textStyles}">
         <div style="${titleStyles}">${esc(n.name || '')}</div>
+        ${n.employees ? `<div style="font-size:13px;color:#64748b;margin-top:4px;">${esc(n.employees)}</div>` : ''}
       </div>
     `;
     root.appendChild(el);
@@ -487,7 +509,6 @@ export async function exportPDF() {
       return;
     }
 
-    // jsPDF viene con html2pdf o como jspdf global
     const JsPDF = window.jspdf?.jsPDF || window.jsPDF;
     if (!JsPDF && !window.html2pdf) {
       setStatus('jsPDF / html2pdf no está disponible.', 'error');
@@ -501,7 +522,6 @@ export async function exportPDF() {
 
     setStatus('Generando PDF del área trabajada...', 'info', 0);
 
-    // 1) Render limpio → PNG (sin handles)
     const built = await renderExportOffscreen('#ffffff');
     host = built.host;
 
@@ -518,7 +538,6 @@ export async function exportPDF() {
       },
     });
 
-    // 2) Una sola página del tamaño exacto del área
     const w = built.bounds.width;
     const h = built.bounds.height;
 
@@ -532,7 +551,6 @@ export async function exportPDF() {
       pdf.addImage(dataUrl, 'PNG', 0, 0, w, h);
       pdf.save(`${companySlug()}.pdf`);
     } else {
-      // fallback html2pdf usando solo la imagen
       const img = document.createElement('img');
       img.src = dataUrl;
       img.style.width = `${w}px`;

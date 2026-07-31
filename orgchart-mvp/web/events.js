@@ -14,6 +14,10 @@ import state, {
   addLink,
   removeLink,
   selectLink,
+  copyNodes,
+  pasteNodes,
+  alignNodes,
+  distributeNodes,
 } from './state.js';
 
 import {
@@ -43,21 +47,50 @@ import {
   NODE_DIMS,
   NODE_MIN_WIDTH,
   NODE_MIN_HEIGHT,
+  GRID_SIZE,
 } from './config.js';
 
 let statusTimeout = null;
 
-export function setStatus(message, type = 'info', duration = 3200) {
-  dom.statusBox.textContent = message;
-  dom.statusBox.className = `status ${type}`;
-  clearTimeout(statusTimeout);
+export function showToast(message, type = 'info', duration = 3000) {
+  const container = dom.toastContainer;
+  if (!container) {
+    dom.statusBox.textContent = message;
+    dom.statusBox.className = `status ${type}`;
+    clearTimeout(statusTimeout);
+    if (duration > 0) {
+      statusTimeout = setTimeout(() => {
+        dom.statusBox.textContent = '';
+        dom.statusBox.className = 'status info';
+      }, duration);
+    }
+    return;
+  }
+
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+
+  const icons = {
+    success: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>',
+    error: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>',
+    info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+  };
+
+  toast.innerHTML = `${icons[type] || icons.info}<span>${message}</span>`;
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => toast.classList.add('show'));
 
   if (duration > 0) {
-    statusTimeout = setTimeout(() => {
-      dom.statusBox.textContent = '';
-      dom.statusBox.className = 'status info';
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
     }, duration);
   }
+}
+
+export function setStatus(message, type = 'info', duration = 3200) {
+  showToast(message, type, duration);
 }
 
 export function setupEventListeners() {
@@ -75,6 +108,13 @@ export function setupEventListeners() {
     addNode();
     renderAll();
   });
+
+  if (dom.createFirstNodeBtn) {
+    dom.createFirstNodeBtn.addEventListener('click', () => {
+      addNode();
+      renderAll();
+    });
+  }
 
   dom.exportHtmlBtn.addEventListener('click', regenerateHTML);
   dom.exportPdfBtn.addEventListener('click', exportPDF);
@@ -129,21 +169,94 @@ export function setupEventListeners() {
   dom.fitBtn.addEventListener('click', fitChart);
   dom.themeToggleBtn?.addEventListener('click', toggleTheme);
 
+  // Grid controls
+  dom.snapGridBtn?.addEventListener('click', () => {
+    state.snapToGrid = !state.snapToGrid;
+    dom.snapGridBtn.classList.toggle('active', state.snapToGrid);
+    setStatus(state.snapToGrid ? 'Ajuste a cuadrícula activado' : 'Ajuste a cuadrícula desactivado', 'info');
+  });
+
+  dom.toggleGridBtn?.addEventListener('click', () => {
+    state.showGrid = !state.showGrid;
+    dom.toggleGridBtn.classList.toggle('active', state.showGrid);
+    renderCanvas();
+  });
+
+  dom.gridSizeInput?.addEventListener('change', e => {
+    state.gridSize = Math.max(5, Math.min(100, parseInt(e.target.value) || GRID_SIZE));
+    renderCanvas();
+  });
+
+  // Shortcuts modal
+  dom.shortcutsBtn?.addEventListener('click', () => {
+    dom.shortcutsModal?.classList.add('active');
+  });
+  dom.closeShortcutsBtn?.addEventListener('click', () => {
+    dom.shortcutsModal?.classList.remove('active');
+  });
+  dom.shortcutsModal?.addEventListener('click', e => {
+    if (e.target === dom.shortcutsModal) dom.shortcutsModal.classList.remove('active');
+  });
+
+  // Alignment buttons (delegated since they are in inspector)
+  dom.inspectorContent.addEventListener('click', e => {
+    const alignBtn = e.target.closest('#alignLeftBtn, #alignCenterBtn, #alignRightBtn, #alignTopBtn, #alignMiddleBtn, #alignBottomBtn');
+    if (alignBtn && state.multiSelectedNodeIds.length > 1) {
+      const map = {
+        'alignLeftBtn': 'left',
+        'alignCenterBtn': 'center',
+        'alignRightBtn': 'right',
+        'alignTopBtn': 'top',
+        'alignMiddleBtn': 'middle',
+        'alignBottomBtn': 'bottom',
+      };
+      const direction = map[alignBtn.id];
+      if (direction) {
+        alignNodes(state.multiSelectedNodeIds, direction);
+        renderAll();
+        setStatus(`Nodos alineados ${direction}`, 'success');
+      }
+      return;
+    }
+
+    const distBtn = e.target.closest('#distributeHBtn, #distributeVBtn');
+    if (distBtn && state.multiSelectedNodeIds.length > 2) {
+      const axis = distBtn.id === 'distributeHBtn' ? 'horizontal' : 'vertical';
+      distributeNodes(state.multiSelectedNodeIds, axis);
+      renderAll();
+      setStatus(`Nodos distribuidos ${axis === 'horizontal' ? 'horizontalmente' : 'verticalmente'}`, 'success');
+      return;
+    }
+  });
+
   dom.chartStage.addEventListener('click', handleStageClick);
   dom.chartStage.addEventListener('pointerdown', startInteraction);
+  dom.chartStage.addEventListener('dblclick', handleDoubleClick);
   dom.canvasViewport.addEventListener('pointerdown', startPan);
   dom.canvasViewport.addEventListener('wheel', handleZoom, { passive: false });
+  dom.canvasViewport.addEventListener('contextmenu', handleContextMenu);
 
   window.addEventListener('pointermove', movePointer);
   window.addEventListener('pointerup', endPointer);
-  window.addEventListener('resize', drawConnectors);
+  window.addEventListener('resize', () => { drawConnectors(); renderMiniMap(); });
   window.addEventListener('keydown', handleKeydown);
+
+  // Close context menu on click elsewhere
+  document.addEventListener('click', () => {
+    if (dom.contextMenu) dom.contextMenu.classList.remove('active');
+  });
 
   dom.nodeList.addEventListener('click', e => {
     const button = e.target.closest('[data-select-node]');
     if (!button) return;
-    state.selectedNodeId = button.dataset.selectNode;
-    state.selectedLinkId = null;
+    const id = button.dataset.selectNode;
+    if (e.shiftKey) {
+      toggleMultiSelect(id);
+    } else {
+      state.selectedNodeId = id;
+      state.selectedLinkId = null;
+      state.multiSelectedNodeIds = [];
+    }
     renderAll();
   });
 
@@ -161,13 +274,10 @@ export function setupEventListeners() {
       const node = state.nodes.find(n => n.id === state.selectedNodeId);
       if (!node) return;
 
-      // Propiedades de tipo 'toggle' (bold, italic, underline)
       if (['fontWeight', 'fontStyle', 'textDecoration'].includes(property)) {
         const newValue = node[property] === value ? '' : value;
         updateNode(state.selectedNodeId, property, newValue);
-      }
-      // Propiedades exclusivas (text-align)
-      else if (property === 'textAlign') {
+      } else if (property === 'textAlign') {
         updateNode(state.selectedNodeId, property, value);
       }
 
@@ -200,13 +310,24 @@ export function setupEventListeners() {
     }
 
     const actionEl = e.target.closest('[data-inspector-action]');
-    if (!actionEl || !state.selectedNodeId) return;
+    if (!actionEl) return;
 
     const action = actionEl.dataset.inspectorAction;
+
+    if (action === 'remove-multi') {
+      const ids = [...state.multiSelectedNodeIds];
+      ids.forEach(id => removeNode(id));
+      state.multiSelectedNodeIds = [];
+      renderAll();
+      setStatus(`${ids.length} nodos eliminados.`, 'success');
+      return;
+    }
+
+    if (!state.selectedNodeId) return;
     const id = state.selectedNodeId;
 
     if (action === 'clear-color') {
-      updateNode(id, 'color', '');
+      updateNode(id, 'bgColor', '#ffffff');
       renderAll();
       return;
     }
@@ -220,9 +341,8 @@ export function setupEventListeners() {
 
   dom.inspectorContent.addEventListener('input', e => {
     const input = e.target;
-    // Los cambios de color y select se manejan en el evento 'change' para confirmar el valor final.
-    if (input.type === 'color' && e.type === 'input') return; // wait for change
-    if (input.tagName === 'SELECT' && e.type === 'input') return; // wait for change
+    if (input.type === 'color' && e.type === 'input') return;
+    if (input.tagName === 'SELECT' && e.type === 'input') return;
 
     if (input.dataset.linkField && state.selectedLinkId) {
       const link = state.links.find(item => item.id === state.selectedLinkId);
@@ -231,9 +351,11 @@ export function setupEventListeners() {
       if (input.dataset.linkField === 'thickness') {
         link.thickness = Math.max(1, Number(input.value || 2));
       }
-
       if (input.dataset.linkField === 'color') {
         link.color = input.value;
+      }
+      if (input.dataset.linkField === 'label') {
+        link.label = input.value;
       }
 
       drawConnectors();
@@ -248,16 +370,13 @@ export function setupEventListeners() {
       return;
     }
 
-
     if (input.dataset.nodeField === 'width' || input.dataset.nodeField === 'height') {
       const node = state.nodes.find(n => n.id === state.selectedNodeId);
       if (!node) return;
-
       const value = Math.max(
         Number(input.value || 0),
         input.dataset.nodeField === 'width' ? NODE_MIN_WIDTH : NODE_MIN_HEIGHT
       );
-
       node[input.dataset.nodeField] = value;
       updateConnectedLinksForNode(node.id);
       renderCanvas();
@@ -268,19 +387,124 @@ export function setupEventListeners() {
     renderCanvas();
   });
 
-  // Escucha los cambios "confirmados", como la selección en un <select>
   dom.inspectorContent.addEventListener('change', e => {
     const input = e.target;
-
-    // Manejar el cambio de estilo del nodo y el color
     if (
       (input.tagName === 'SELECT' || input.type === 'color') &&
       input.dataset.nodeField &&
       state.selectedNodeId
     ) {
       updateNode(state.selectedNodeId, input.dataset.nodeField, input.value);
-      commitTransientChange(); // Asegura que el cambio se consolide para el guardado
+      commitTransientChange();
       renderCanvas();
+    }
+  });
+}
+
+function toggleMultiSelect(id) {
+  const idx = state.multiSelectedNodeIds.indexOf(id);
+  if (idx >= 0) {
+    state.multiSelectedNodeIds.splice(idx, 1);
+  } else {
+    state.multiSelectedNodeIds.push(id);
+  }
+  if (state.selectedNodeId === id && state.multiSelectedNodeIds.length > 0) {
+    state.selectedNodeId = null;
+  }
+}
+
+function handleContextMenu(event) {
+  event.preventDefault();
+  if (!dom.contextMenu) return;
+
+  const nodeEl = event.target.closest('.chart-node');
+  const linkPath = event.target.closest('[data-link-id]');
+
+  let items = [];
+
+  if (nodeEl) {
+    const id = nodeEl.dataset.id;
+    items = [
+      { label: 'Editar nombre', action: () => startInlineEdit(id) },
+      { label: 'Duplicar', action: () => { duplicateNode(id); renderAll(); } },
+      { label: 'Agregar hijo', action: () => { addNode(id); renderAll(); } },
+      { label: 'Eliminar', action: () => { removeNode(id); renderAll(); }, danger: true },
+    ];
+  } else if (linkPath) {
+    const id = linkPath.dataset.linkId;
+    items = [
+      { label: 'Restablecer ruta', action: () => {
+        const link = state.links.find(l => l.id === id);
+        if (link) { link.points = []; link.fromSide = ''; link.toSide = ''; commitTransientChange(); renderAll(); }
+      }},
+      { label: 'Eliminar conector', action: () => { removeLink(id); renderAll(); }, danger: true },
+    ];
+  } else {
+    items = [
+      { label: 'Agregar nodo raíz', action: () => { addNode(); renderAll(); } },
+      { label: 'Centrar vista', action: () => centerChart(false) },
+      { label: 'Ajustar a pantalla', action: () => fitChart() },
+    ];
+  }
+
+  dom.contextMenu.innerHTML = items.map(item => 
+    `<button class="${item.danger ? 'danger' : ''}" type="button">${item.label}</button>`
+  ).join('');
+
+  const buttons = dom.contextMenu.querySelectorAll('button');
+  buttons.forEach((btn, i) => {
+    btn.addEventListener('click', () => {
+      items[i].action();
+      dom.contextMenu.classList.remove('active');
+    });
+  });
+
+  dom.contextMenu.style.left = `${event.clientX}px`;
+  dom.contextMenu.style.top = `${event.clientY}px`;
+  dom.contextMenu.classList.add('active');
+}
+
+function handleDoubleClick(event) {
+  const nodeEl = event.target.closest('.chart-node');
+  if (nodeEl) {
+    startInlineEdit(nodeEl.dataset.id);
+  }
+}
+
+function startInlineEdit(nodeId) {
+  const node = state.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+
+  const nodeEl = dom.chartStage.querySelector(`.chart-node[data-id="${nodeId}"]`);
+  if (!nodeEl) return;
+
+  nodeEl.dataset.editing = 'true';
+  renderCanvas();
+
+  const input = nodeEl.querySelector('.inline-edit');
+  if (!input) return;
+
+  input.focus();
+  input.select();
+
+  const finish = () => {
+    if (input.value.trim() && input.value !== node.name) {
+      updateNode(nodeId, 'name', input.value.trim());
+      commitTransientChange();
+    }
+    nodeEl.dataset.editing = 'false';
+    renderAll();
+  };
+
+  input.addEventListener('blur', finish, { once: true });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    }
+    if (e.key === 'Escape') {
+      input.value = node.name;
+      input.blur();
     }
   });
 }
@@ -298,24 +522,31 @@ function handleStageClick(event) {
     event.stopPropagation();
     const id = quickAction.dataset.id;
     const action = quickAction.dataset.nodeAction;
-
     if (action === 'add-child') addNode(id);
-
     renderAll();
     return;
   }
 
   const nodeEl = event.target.closest('.chart-node');
-  if (nodeEl && !event.target.closest('.node-port, [data-resize-handle], [data-node-action]')) {
-    state.selectedNodeId = nodeEl.dataset.id;
-    state.selectedLinkId = null;
+  if (nodeEl && !event.target.closest('.node-port, [data-resize-handle], [data-node-action], .inline-edit')) {
+    const id = nodeEl.dataset.id;
+    if (event.shiftKey) {
+      toggleMultiSelect(id);
+    } else {
+      state.selectedNodeId = id;
+      state.selectedLinkId = null;
+      state.multiSelectedNodeIds = [];
+    }
     renderAll();
     return;
   }
 
-  state.selectedNodeId = null;
-  state.selectedLinkId = null;
-  renderAll();
+  if (!event.shiftKey && !event.target.closest('.node-port, [data-resize-handle], .edge-handle, .segment-handle')) {
+    state.selectedNodeId = null;
+    state.selectedLinkId = null;
+    state.multiSelectedNodeIds = [];
+    renderAll();
+  }
 }
 
 function toggleTheme() {
@@ -324,6 +555,8 @@ function toggleTheme() {
 }
 
 function startInteraction(event) {
+  if (event.button !== 0) return; // Only left click
+
   const port = event.target.closest('.node-port');
   if (port) {
     event.stopPropagation();
@@ -375,6 +608,12 @@ function startInteraction(event) {
   const nodeEl = event.target.closest('.chart-node');
   if (nodeEl && !event.target.closest('[data-node-action]') && !state.autoLayout) {
     startNodeDrag(event, nodeEl);
+    return;
+  }
+
+  // Start selection box
+  if (!event.target.closest('.chart-node, .node-port, [data-resize-handle], .edge-handle, .segment-handle')) {
+    startSelectionBox(event);
   }
 }
 
@@ -384,6 +623,12 @@ function getSvgPoint(event) {
     x: (event.clientX - rect.left) / state.view.scale,
     y: (event.clientY - rect.top) / state.view.scale,
   };
+}
+
+function snapToGrid(value) {
+  if (!state.snapToGrid) return value;
+  const grid = state.gridSize || GRID_SIZE;
+  return Math.round(value / grid) * grid;
 }
 
 function startNodeDrag(event, nodeEl) {
@@ -417,9 +662,21 @@ function startNodeResize(event, nodeId) {
   };
 }
 
+function startSelectionBox(event) {
+  const point = getSvgPoint(event);
+  state.selectionBox = {
+    pointerId: event.pointerId,
+    x: point.x,
+    y: point.y,
+    width: 0,
+    height: 0,
+  };
+}
+
 function startPan(event) {
   if (event.target.closest('.chart-node, [data-resize-handle], .node-port, .edge-handle, .segment-handle')) return;
   if (event.target.closest('button, input, select, label')) return;
+  if (event.button !== 0 && event.button !== 1) return; // left or middle
 
   state.panState = {
     pointerId: event.pointerId,
@@ -495,8 +752,6 @@ function movePointer(event) {
     const deltaX = (event.clientX - resize.startX) / state.view.scale;
     const deltaY = (event.clientY - resize.startY) / state.view.scale;
 
-    // Para manejar el cambio de tamaño en nodos rotados, convertimos el delta
-    // del ratón (en coordenadas de la pantalla) a las coordenadas locales del nodo.
     const angle = (node.rotation || 0) * Math.PI / 180;
     const cos = Math.cos(-angle);
     const sin = Math.sin(-angle);
@@ -504,12 +759,15 @@ function movePointer(event) {
     const localDeltaX = deltaX * cos - deltaY * sin;
     const localDeltaY = deltaX * sin + deltaY * cos;
 
-    patchNodeSize(
-      resize.nodeId,
-      resize.originWidth + localDeltaX,
-      resize.originHeight + localDeltaY
-    );
+    let newW = resize.originWidth + localDeltaX;
+    let newH = resize.originHeight + localDeltaY;
 
+    if (state.snapToGrid) {
+      newW = snapToGrid(newW);
+      newH = snapToGrid(newH);
+    }
+
+    patchNodeSize(resize.nodeId, newW, newH);
     updateConnectedLinksForNode(resize.nodeId);
 
     const nodeEl = dom.chartStage.querySelector(`.chart-node[data-id="${resize.nodeId}"]`);
@@ -524,8 +782,13 @@ function movePointer(event) {
 
   if (state.nodeDragState && event.pointerId === state.nodeDragState.pointerId) {
     const drag = state.nodeDragState;
-    const nextX = drag.originX + (event.clientX - drag.startX) / state.view.scale;
-    const nextY = drag.originY + (event.clientY - drag.startY) / state.view.scale;
+    let nextX = drag.originX + (event.clientX - drag.startX) / state.view.scale;
+    let nextY = drag.originY + (event.clientY - drag.startY) / state.view.scale;
+
+    if (state.snapToGrid) {
+      nextX = snapToGrid(nextX);
+      nextY = snapToGrid(nextY);
+    }
 
     patchNodePosition(drag.nodeId, nextX, nextY);
     updateConnectedLinksForNode(drag.nodeId);
@@ -541,11 +804,40 @@ function movePointer(event) {
     return;
   }
 
+  if (state.selectionBox && event.pointerId === state.selectionBox.pointerId) {
+    const point = getSvgPoint(event);
+    state.selectionBox.width = point.x - state.selectionBox.x;
+    state.selectionBox.height = point.y - state.selectionBox.y;
+    renderSelectionBox();
+    return;
+  }
+
   if (state.panState && event.pointerId === state.panState.pointerId) {
     state.view.x = state.panState.originX + (event.clientX - state.panState.startX);
     state.view.y = state.panState.originY + (event.clientY - state.panState.startY);
     applyView();
   }
+}
+
+function renderSelectionBox() {
+  let box = dom.chartStage.querySelector('#selectionBox');
+  if (!state.selectionBox) {
+    if (box) box.remove();
+    return;
+  }
+
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'selectionBox';
+    box.className = 'selection-box';
+    dom.chartStage.appendChild(box);
+  }
+
+  const { x, y, width, height } = state.selectionBox;
+  box.style.left = `${Math.min(x, x + width)}px`;
+  box.style.top = `${Math.min(y, y + height)}px`;
+  box.style.width = `${Math.abs(width)}px`;
+  box.style.height = `${Math.abs(height)}px`;
 }
 
 function drawTempConnector() {
@@ -587,9 +879,7 @@ function endPointer(event) {
       const toNode = state.nodes.find(n => n.id === toId);
       const fromNode = state.nodes.find(n => n.id === state.portDragState.fromNodeId);
 
-      if (toSide) {
-        link.toSide = toSide;
-      }
+      if (toSide) link.toSide = toSide;
 
       ensureAutomaticLinkDirection(link, fromNode, toNode);
       ensureEditableLink(link, fromNode, toNode);
@@ -633,6 +923,31 @@ function endPointer(event) {
       commitTransientChange();
       renderCanvas();
     }
+    return;
+  }
+
+  if (state.selectionBox && event.pointerId === state.selectionBox.pointerId) {
+    const box = state.selectionBox;
+    const minX = Math.min(box.x, box.x + box.width);
+    const maxX = Math.max(box.x, box.x + box.width);
+    const minY = Math.min(box.y, box.y + box.height);
+    const maxY = Math.max(box.y, box.y + box.height);
+
+    const selected = state.nodes.filter(n => 
+      n.x >= minX && n.x + n.width <= maxX &&
+      n.y >= minY && n.y + n.height <= maxY
+    );
+
+    if (selected.length > 0) {
+      state.multiSelectedNodeIds = selected.map(n => n.id);
+      state.selectedNodeId = null;
+      state.selectedLinkId = null;
+    }
+
+    state.selectionBox = null;
+    const boxEl = dom.chartStage.querySelector('#selectionBox');
+    if (boxEl) boxEl.remove();
+    renderAll();
     return;
   }
 
@@ -778,9 +1093,74 @@ function handleKeydown(e) {
     return;
   }
 
-  if (e.key === 'Delete' && state.selectedNodeId) {
-    removeNode(state.selectedNodeId);
+  if (meta && e.key.toLowerCase() === 'c') {
+    e.preventDefault();
+    const ids = state.selectedNodeId ? [state.selectedNodeId] : state.multiSelectedNodeIds;
+    if (ids.length) {
+      copyNodes(ids);
+      setStatus(`${ids.length} nodo(s) copiado(s)`, 'success');
+    }
+    return;
+  }
+
+  if (meta && e.key.toLowerCase() === 'v') {
+    e.preventDefault();
+    const pasted = pasteNodes();
+    if (pasted.length) {
+      renderAll();
+      setStatus(`${pasted.length} nodo(s) pegado(s)`, 'success');
+    }
+    return;
+  }
+
+  if (meta && e.key.toLowerCase() === 'd') {
+    e.preventDefault();
+    if (state.selectedNodeId) {
+      duplicateNode(state.selectedNodeId);
+      renderAll();
+      setStatus('Nodo duplicado', 'success');
+    }
+    return;
+  }
+
+  if (meta && e.key.toLowerCase() === 'a') {
+    e.preventDefault();
+    state.multiSelectedNodeIds = state.nodes.map(n => n.id);
+    state.selectedNodeId = null;
+    state.selectedLinkId = null;
     renderAll();
-    setStatus('Nodo eliminado.', 'success');
+    return;
+  }
+
+  if (e.key === '?') {
+    e.preventDefault();
+    dom.shortcutsModal?.classList.toggle('active');
+    return;
+  }
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+
+    if (state.selectedLinkId) {
+      removeLink(state.selectedLinkId);
+      renderAll();
+      setStatus('Conector eliminado.', 'success');
+      return;
+    }
+
+    if (state.selectedNodeId) {
+      removeNode(state.selectedNodeId);
+      renderAll();
+      setStatus('Nodo eliminado.', 'success');
+      return;
+    }
+
+    if (state.multiSelectedNodeIds.length) {
+      const count = state.multiSelectedNodeIds.length;
+      state.multiSelectedNodeIds.forEach(id => removeNode(id));
+      state.multiSelectedNodeIds = [];
+      renderAll();
+      setStatus(`${count} nodos eliminados.`, 'success');
+    }
   }
 }

@@ -3,8 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Editor de organigrama</title>
-
+  <title>LincJDiagram — Editor de organigramas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -15,16 +17,16 @@
         extend: {
           colors: {
             brand: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              200: '#bae6fd',
-              300: '#7dd3fc',
-              400: '#38bdf8',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985',
-              900: '#0c4a6e',
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              300: '#a5b4fc',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+              900: '#312e81',
             }
           }
         }
@@ -41,29 +43,77 @@
 
   <!-- App del editor -->
   <script type="module" src="./app.js"></script>
+<base target="_blank">
 </head>
 <body>
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Context Menu -->
+  <div id="contextMenu" class="context-menu"></div>
+
+  <!-- Shortcuts Modal -->
+  <div id="shortcutsModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⌨️ Atajos de teclado</h2>
+        <button id="closeShortcutsBtn" class="p-2" style="background:transparent;border:none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcut-row"><span>Deshacer</span><span class="shortcut-key"><kbd>Ctrl</kbd><kbd>Z</kbd></span></div>
+        <div class="shortcut-row"><span>Rehacer</span><span class="shortcut-key"><kbd>Ctrl</kbd><kbd>Y</kbd></span></div>
+        <div class="shortcut-row"><span>Copiar nodo(s)</span><span class="shortcut-key"><kbd>Ctrl</kbd><kbd>C</kbd></span></div>
+        <div class="shortcut-row"><span>Pegar nodo(s)</span><span class="shortcut-key"><kbd>Ctrl</kbd><kbd>V</kbd></span></div>
+        <div class="shortcut-row"><span>Duplicar nodo</span><span class="shortcut-key"><kbd>Ctrl</kbd><kbd>D</kbd></span></div>
+        <div class="shortcut-row"><span>Seleccionar todo</span><span class="shortcut-key"><kbd>Ctrl</kbd><kbd>A</kbd></span></div>
+        <div class="shortcut-row"><span>Eliminar</span><span class="shortcut-key"><kbd>Del</kbd></span></div>
+        <div class="shortcut-row"><span>Selección múltiple</span><span class="shortcut-key"><kbd>Shift</kbd>+ clic</span></div>
+        <div class="shortcut-row"><span>Editar nombre</span><span class="shortcut-key">Doble clic</span></div>
+        <div class="shortcut-row"><span>Menú contextual</span><span class="shortcut-key">Clic derecho</span></div>
+        <div class="shortcut-row"><span>Ver atajos</span><span class="shortcut-key"><kbd>?</kbd></span></div>
+      </div>
+    </div>
+  </div>
+
   <header class="topbar">
-    <div>
-      <h1>Editor de organigrama</h1>
-      <p>Construye y ajusta tu estructura organizacional de forma visual.</p>
+    <div class="brand">
+      <div class="brand-logo">LJ</div>
+      <div class="brand-text">
+        <h1>LincJDiagram</h1>
+        <p>Editor visual de estructuras organizacionales</p>
+      </div>
     </div>
 
     <div class="shapes-toolbar">
       <div id="shapeList" class="shape-list flex gap-2">
-        <div class="shape-item" data-shape-type="classic" draggable="true" title="Arrastrar Rectángulo"></div>
-        <div class="shape-item" data-shape-type="circle" draggable="true" title="Arrastrar Círculo"></div>
-        <div class="shape-item" data-shape-type="triangle" draggable="true" title="Arrastrar Triángulo"></div>
-        <div class="shape-item" data-shape-type="rhombus" draggable="true" title="Arrastrar Rombo"></div>
-        <div class="shape-item" data-shape-type="hexagon" draggable="true" title="Arrastrar Hexágono"></div>
+        <div class="shape-item" data-shape-type="classic" draggable="true" title="Rectángulo"></div>
+        <div class="shape-item" data-shape-type="rounded" draggable="true" title="Redondeado"></div>
+        <div class="shape-item" data-shape-type="circle" draggable="true" title="Círculo"></div>
+        <div class="shape-item" data-shape-type="pill" draggable="true" title="Píldora"></div>
+        <div class="shape-item" data-shape-type="triangle" draggable="true" title="Triángulo"></div>
+        <div class="shape-item" data-shape-type="rhombus" draggable="true" title="Rombo"></div>
+        <div class="shape-item" data-shape-type="hexagon" draggable="true" title="Hexágono"></div>
       </div>
     </div>
 
     <div class="toolbar-row">
-      <button id="themeToggleBtn" class="flex items-center" title="Cambiar Tema"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg></button>
-      <button id="saveBtn" class="flex items-center bg-brand-600 hover:bg-brand-700 text-white border-transparent" title="Guardar cambios"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg> <span>Guardar</span></button>
+      <button id="shortcutsBtn" class="flex items-center justify-center w-9 h-9 p-0" title="Atajos de teclado (?)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" /></svg>
+      </button>
+      <button id="themeToggleBtn" class="flex items-center justify-center w-9 h-9 p-0" title="Cambiar Tema">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>
+      </button>
+      <button id="saveBtn" class="flex items-center bg-brand-600 hover:bg-brand-700 text-white border-transparent px-4" title="Guardar cambios">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+        <span>Guardar</span>
+      </button>
       <div class="dropdown">
-        <button id="exportBtn" class="dropdown-toggle flex items-center"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 inline-block mr-1"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg> <span>Exportar ▼</span></button>
+        <button id="exportBtn" class="dropdown-toggle flex items-center px-4">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+          <span>Exportar ▼</span>
+        </button>
         <div id="exportMenu" class="dropdown-menu">
           <button id="exportHtmlBtn">Regenerar HTML</button>
           <button id="exportPdfBtn">Exportar PDF</button>
@@ -76,7 +126,7 @@
   <main class="layout">
     <!-- Panel izquierdo: controles y lista de nodos -->
     <aside class="panel sidebar">
-      <h2>Propiedades generales</h2>
+      <h2>Propiedades</h2>
 
       <label>
         <span>Empresa</span>
@@ -85,7 +135,7 @@
 
       <label>
         <span>Buscar</span>
-        <input id="searchInput" type="text" placeholder="Busca por nombre, cargo o área">
+        <input id="searchInput" type="text" placeholder="Busca por nombre o descripción...">
       </label>
 
       <div id="statsGrid" class="stats-grid"></div>
@@ -93,31 +143,63 @@
       <div class="sidebar-section">
         <h3>Edición</h3>
         <div class="button-grid">
-          <button id="addRootBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>Raíz</button>
-          <button id="autoLayoutBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" /></svg><span class="whitespace-nowrap text-[10px]">Auto layout</span></button>
-          <button id="connectModeBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" /></svg>Conectar</button>
-          <button id="undoBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1" title="Deshacer"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" /></svg>Deshacer</button>
-          <button id="redoBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1" title="Rehacer"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 15 21 9m0 0-6-6M21 9H9a6 6 0 0 0 0 12h3" /></svg>Rehacer</button>
+          <button id="addRootBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+            <span class="whitespace-nowrap text-[10px]">Raíz</span>
+          </button>
+          <button id="autoLayoutBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" /></svg>
+            <span class="whitespace-nowrap text-[10px]">Auto layout</span>
+          </button>
+          <button id="undoBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1" title="Deshacer (Ctrl+Z)">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" /></svg>
+            <span class="whitespace-nowrap text-[10px]">Deshacer</span>
+          </button>
+          <button id="redoBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1" title="Rehacer (Ctrl+Y)">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 15 21 9m0 0-6-6M21 9H9a6 6 0 0 0 0 12h3" /></svg>
+            <span class="whitespace-nowrap text-[10px]">Rehacer</span>
+          </button>
         </div>
       </div>
-      
+
       <div class="sidebar-section">
         <h3>Vista</h3>
         <div class="button-grid">
-          <button id="centerBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1" title="Centrar vista"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>Centrar</button>
-          <button id="fitBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1" title="Ajustar a la pantalla"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>Ajustar</button>
-          <button id="zoomInBtn" class="flex items-center justify-center text-xl font-bold" title="Acercar">+</button>
-          <button id="zoomOutBtn" class="flex items-center justify-center text-xl font-bold" title="Alejar">−</button>
-          <button id="zoomResetBtn" class="flex items-center justify-center text-sm font-medium" title="Zoom original">100%</button>
+          <button id="centerBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1" title="Centrar vista">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>
+            <span class="whitespace-nowrap text-[10px]">Centrar</span>
+          </button>
+          <button id="fitBtn" class="flex items-center justify-center flex-col text-xs p-2 gap-1" title="Ajustar a la pantalla">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>
+            <span class="whitespace-nowrap text-[10px]">Ajustar</span>
+          </button>
+          <button id="zoomInBtn" class="flex items-center justify-center text-lg font-bold" title="Acercar">+</button>
+          <button id="zoomOutBtn" class="flex items-center justify-center text-lg font-bold" title="Alejar">−</button>
+          <button id="zoomResetBtn" class="flex items-center justify-center text-xs font-medium" title="Zoom original">100%</button>
         </div>
       </div>
-      
+
+      <div class="sidebar-section">
+        <h3>Cuadrícula</h3>
+        <div class="flex gap-2 items-center">
+          <button id="snapGridBtn" class="flex-1 text-xs py-2 active" title="Ajustar a cuadrícula">Snap</button>
+          <button id="toggleGridBtn" class="flex-1 text-xs py-2 active" title="Mostrar cuadrícula">Grid</button>
+          <input id="gridSizeInput" type="number" value="20" min="5" max="100" step="5" class="w-16 text-center text-xs py-2" title="Tamaño de cuadrícula">
+        </div>
+      </div>
+
       <div class="sidebar-section">
         <h3>Datos</h3>
         <div class="button-grid">
-          <button id="downloadJsonBtn" class="flex items-center justify-center gap-2 p-2"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>Descargar</button>
+          <button id="downloadJsonBtn" class="flex items-center justify-center gap-2 p-2 text-xs">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+            Descargar
+          </button>
           <label class="import-box">
-            <span class="flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>Importar JSON</span>
+            <span class="flex items-center justify-center gap-2 text-xs">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+              Importar JSON
+            </span>
             <input id="importJsonInput" type="file" accept="application/json">
           </label>
         </div>
@@ -136,6 +218,20 @@
 
       <div id="canvasViewport" class="canvas-viewport">
         <div id="chartStage" class="chart-stage"></div>
+
+        <!-- Welcome Screen -->
+        <div id="welcomeScreen" class="welcome-screen">
+          <div class="brand-logo" style="width:64px;height:64px;font-size:32px;border-radius:16px;">LJ</div>
+          <h2>Bienvenido a LincJDiagram</h2>
+          <p>Crea tu primer nodo para comenzar a diseñar tu organigrama</p>
+          <button id="createFirstNodeBtn">Crear primer nodo</button>
+          <p class="text-xs" style="color:var(--muted-text);margin-top:8px;">O arrastra una forma desde la barra superior</p>
+        </div>
+
+        <!-- Mini Map -->
+        <div id="miniMap" class="mini-map">
+          <canvas width="180" height="120"></canvas>
+        </div>
       </div>
     </section>
 
@@ -143,7 +239,11 @@
     <aside class="panel inspector">
       <h2>Inspector</h2>
       <div id="inspectorContent" class="inspector-fields">
-        <p class="empty">Selecciona un nodo o un conector para editarlo.</p>
+        <div class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15.042 21.672 13.684 28.5m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243-1.59-1.59"/></svg>
+          <p>Selecciona un nodo o un conector para editarlo.</p>
+          <p class="hint">Shift + clic para selección múltiple</p>
+        </div>
       </div>
     </aside>
   </main>

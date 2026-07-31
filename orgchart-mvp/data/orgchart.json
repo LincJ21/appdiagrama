@@ -1,6 +1,6 @@
 {
   "company": "Mi Organigrama",
-  "updatedAt": "2026-07-30T09:45:06.274978661-05:00",
+  "updatedAt": "2026-07-30T15:35:15.154324566-05:00",
   "nodes": [
     {
       "id": "hhhodkim",
@@ -46,8 +46,8 @@
       "id": "j7gijybw",
       "parentId": "hhhodkim",
       "name": "Nuevo nodo",
-      "x": 844.6906932400002,
-      "y": -36.91040804000005,
+      "x": 960,
+      "y": -40,
       "width": 308,
       "height": 148,
       "rotation": 0,
@@ -126,6 +126,42 @@
       "rotation": 0,
       "style": "classic",
       "textAlign": "left"
+    },
+    {
+      "id": "u0w758zo22j4",
+      "parentId": "",
+      "name": "Nuevo nodo",
+      "x": 540,
+      "y": -200,
+      "width": 280,
+      "height": 140,
+      "rotation": 0,
+      "style": "rounded",
+      "textAlign": "left"
+    },
+    {
+      "id": "tubeiehe249i",
+      "parentId": "",
+      "name": "Nuevo nodo",
+      "x": 1260,
+      "y": -240,
+      "width": 280,
+      "height": 280,
+      "rotation": 0,
+      "style": "circle",
+      "textAlign": "left"
+    },
+    {
+      "id": "mt7iw5wd2a5s",
+      "parentId": "",
+      "name": "Nuevo nodo",
+      "x": -220,
+      "y": -360,
+      "width": 280,
+      "height": 280,
+      "rotation": 0,
+      "style": "rhombus",
+      "textAlign": "left"
     }
   ],
   "links": [
@@ -142,16 +178,16 @@
           "y": 35.71712776462401
         },
         {
-          "x": 706.1348500286481,
+          "x": 763.789503408648,
           "y": 35.71712776462401
         },
         {
-          "x": 706.1348500286481,
-          "y": 37.08959195999995
+          "x": 763.789503408648,
+          "y": 34
         },
         {
-          "x": 844.6906932400002,
-          "y": 37.08959195999995
+          "x": 960,
+          "y": 34
         }
       ],
       "fromSide": "right",

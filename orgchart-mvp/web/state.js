@@ -6,6 +6,7 @@ import {
   NODE_MIN_HEIGHT,
   NODE_MAX_WIDTH,
   NODE_MAX_HEIGHT,
+  GRID_SIZE,
 } from './config.js';
 
 export const state = {
@@ -15,12 +16,12 @@ export const state = {
   links: [],
   selectedNodeId: null,
   selectedLinkId: null,
+  multiSelectedNodeIds: [],
   activeAnchor: null,
   edgeDragState: null,
   segmentDragState: null,
   portDragState: null,
   searchTerm: '',
-  // OFF por defecto para NO reordenar al recargar
   autoLayout: false,
   connectMode: false,
   connectSourceId: null,
@@ -32,9 +33,15 @@ export const state = {
   panState: null,
   nodeDragState: null,
   resizeState: null,
+  selectionBox: null,
+  clipboard: null,
+  snapToGrid: true,
+  gridSize: GRID_SIZE,
+  showGrid: true,
+  showMiniMap: true,
 };
 
-const uid = () => Math.random().toString(36).slice(2, 10);
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 const clone = value => JSON.parse(JSON.stringify(value));
 
 function snapshot() {
@@ -69,7 +76,6 @@ export function normalizeState(data = {}) {
         parentId: node.parentId || '',
         name: node.name || 'Nuevo nodo',
         employees: node.employees || '',
-        // Respeta posiciones guardadas
         x: hasX ? toNumber(node.x, index * HORIZONTAL_SPACING) : index * HORIZONTAL_SPACING,
         y: hasY ? toNumber(node.y, 80) : 80,
         width: toNumber(node.width, NODE_DIMS.width) || NODE_DIMS.width,
@@ -98,6 +104,7 @@ export function normalizeState(data = {}) {
       fromOffset: toNumber(link.fromOffset, 0),
       toOffset: toNumber(link.toOffset, 0),
       manual: !!link.manual,
+      label: link.label || '',
     })),
   };
 }
@@ -153,8 +160,8 @@ export function addNode(parentId = '', options = {}) {
   state.nodes.push(node);
   state.selectedNodeId = node.id;
   state.selectedLinkId = null;
+  state.multiSelectedNodeIds = [];
 
-  // No aplicar auto-layout si se especifica una posición (p. ej. al soltar una figura)
   if (state.autoLayout && options.x === undefined) {
     applyLayout();
   }
@@ -166,6 +173,15 @@ export function updateNode(id, field, value) {
   if (!node) return;
   pushHistory();
   node[field] = value;
+}
+
+export function updateMultipleNodes(updates) {
+  // updates: array of {id, field, value}
+  pushHistory();
+  for (const u of updates) {
+    const node = state.nodes.find(n => n.id === u.id);
+    if (node) node[u.field] = u.value;
+  }
 }
 
 export function removeNode(id) {
@@ -192,6 +208,9 @@ export function removeNode(id) {
   if (state.selectedNodeId && idsToRemove.has(state.selectedNodeId)) {
     state.selectedNodeId = state.nodes[0]?.id || null;
   }
+  state.multiSelectedNodeIds = state.multiSelectedNodeIds.filter(
+    id => !idsToRemove.has(id)
+  );
 
   if (state.selectedLinkId && !state.links.some(l => l.id === state.selectedLinkId)) {
     state.selectedLinkId = null;
@@ -215,7 +234,132 @@ export function duplicateNode(id) {
   state.nodes.push(copy);
   state.selectedNodeId = copy.id;
   state.selectedLinkId = null;
+  state.multiSelectedNodeIds = [];
   return copy;
+}
+
+export function copyNodes(nodeIds) {
+  const nodes = state.nodes.filter(n => nodeIds.includes(n.id));
+  if (!nodes.length) return;
+
+  // Also copy links that connect between copied nodes
+  const idSet = new Set(nodeIds);
+  const links = state.links.filter(l => idSet.has(l.fromId) && idSet.has(l.toId));
+
+  state.clipboard = {
+    nodes: clone(nodes),
+    links: clone(links),
+    offsetX: 40,
+    offsetY: 40,
+  };
+}
+
+export function pasteNodes() {
+  if (!state.clipboard) return [];
+  pushHistory();
+
+  const { nodes, links } = state.clipboard;
+  const idMap = new Map();
+  const newNodes = [];
+
+  for (const node of nodes) {
+    const newId = uid();
+    idMap.set(node.id, newId);
+    const copy = {
+      ...clone(node),
+      id: newId,
+      x: node.x + state.clipboard.offsetX,
+      y: node.y + state.clipboard.offsetY,
+      name: node.name,
+    };
+    state.nodes.push(copy);
+    newNodes.push(copy);
+  }
+
+  for (const link of links) {
+    const newFromId = idMap.get(link.fromId);
+    const newToId = idMap.get(link.toId);
+    if (newFromId && newToId) {
+      state.links.push({
+        ...clone(link),
+        id: uid(),
+        fromId: newFromId,
+        toId: newToId,
+      });
+    }
+  }
+
+  state.clipboard.offsetX += 20;
+  state.clipboard.offsetY += 20;
+
+  if (newNodes.length === 1) {
+    state.selectedNodeId = newNodes[0].id;
+    state.multiSelectedNodeIds = [];
+  } else {
+    state.selectedNodeId = null;
+    state.multiSelectedNodeIds = newNodes.map(n => n.id);
+  }
+  state.selectedLinkId = null;
+
+  return newNodes;
+}
+
+export function alignNodes(nodeIds, direction) {
+  if (nodeIds.length < 2) return;
+  pushHistory();
+
+  const nodes = state.nodes.filter(n => nodeIds.includes(n.id));
+  if (!nodes.length) return;
+
+  let value;
+  switch (direction) {
+    case 'left':
+      value = Math.min(...nodes.map(n => n.x));
+      nodes.forEach(n => n.x = value);
+      break;
+    case 'center':
+      value = nodes.reduce((sum, n) => sum + n.x + n.width / 2, 0) / nodes.length;
+      nodes.forEach(n => n.x = value - n.width / 2);
+      break;
+    case 'right':
+      value = Math.max(...nodes.map(n => n.x + n.width));
+      nodes.forEach(n => n.x = value - n.width);
+      break;
+    case 'top':
+      value = Math.min(...nodes.map(n => n.y));
+      nodes.forEach(n => n.y = value);
+      break;
+    case 'middle':
+      value = nodes.reduce((sum, n) => sum + n.y + n.height / 2, 0) / nodes.length;
+      nodes.forEach(n => n.y = value - n.height / 2);
+      break;
+    case 'bottom':
+      value = Math.max(...nodes.map(n => n.y + n.height));
+      nodes.forEach(n => n.y = value - n.height);
+      break;
+  }
+}
+
+export function distributeNodes(nodeIds, axis) {
+  if (nodeIds.length < 3) return;
+  pushHistory();
+
+  const nodes = state.nodes.filter(n => nodeIds.includes(n.id));
+  if (nodes.length < 3) return;
+
+  if (axis === 'horizontal') {
+    nodes.sort((a, b) => a.x - b.x);
+    const min = nodes[0].x;
+    const max = nodes[nodes.length - 1].x;
+    const step = (max - min) / (nodes.length - 1);
+    nodes.forEach((n, i) => n.x = min + step * i);
+  } else {
+    nodes.sort((a, b) => a.y - b.y);
+    const min = nodes[0].y;
+    const max = nodes[nodes.length - 1].y;
+    const step = (max - min) / (nodes.length - 1);
+    nodes.forEach((n, i) => n.y = min + step * i);
+  }
 }
 
 export function undo() {
@@ -267,22 +411,14 @@ export function importChart(payload) {
   state.links = normalized.links;
   state.selectedNodeId = state.nodes[0]?.id || null;
   state.selectedLinkId = null;
+  state.multiSelectedNodeIds = [];
 
-  // Al importar, solo auto-layout si no hay posiciones
   const hasPos = state.nodes.every(n => Number.isFinite(Number(n.x)) && Number.isFinite(Number(n.y)));
   if (state.autoLayout && !hasPos) applyLayout();
 }
 
 export function addLink(fromId, toId) {
   pushHistory();
-
-  // Al crear un enlace manual, se asume una nueva relación jerárquica.
-  // Se actualiza el `parentId` del nodo de destino para evitar conectores duplicados
-  // al exportar, asegurando que solo haya una fuente de verdad para la jerarquía.
-  const toNode = state.nodes.find(n => n.id === toId);
-  if (toNode) {
-    toNode.parentId = fromId;
-  }
 
   const link = {
     id: uid(),
@@ -297,11 +433,13 @@ export function addLink(fromId, toId) {
     fromOffset: 0,
     toOffset: 0,
     manual: true,
+    label: '',
   };
 
   state.links.push(link);
   state.selectedLinkId = link.id;
   state.selectedNodeId = null;
+  state.multiSelectedNodeIds = [];
   return link;
 }
 
@@ -314,6 +452,7 @@ export function removeLink(id) {
 export function selectLink(id) {
   state.selectedLinkId = id;
   state.selectedNodeId = null;
+  state.multiSelectedNodeIds = [];
 }
 
 export function clearLinkPoints(id) {
